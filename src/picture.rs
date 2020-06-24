@@ -19,11 +19,11 @@ impl Picture {
     {
         mutator(&mut self.colors, self.width, self.height);
     }
-    pub fn print_to_file(self) {
+    pub fn print_to_file(&self) {
         println!("P3");
         println!("{} {}", self.width, self.height);
         println!("255");
-        for j in 0..self.height {
+        for j in (0..self.height).rev() {
             for i in 0..self.width {
                 print!("{}", self.colors[j * self.width + i].to_string())
             }
