@@ -7,7 +7,7 @@ pub struct Ray {
 }
 
 impl Ray {
-    fn get_point_at(&self, t: f32) -> Vector3<f32> {
+    pub fn get_point_at(&self, t: f32) -> Vector3<f32> {
         self.origin + self.direction * t
     }
 }
