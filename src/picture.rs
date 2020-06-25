@@ -14,8 +14,8 @@ impl Picture {
             colors: vec![Color{r: 0, g: 0, b: 0}; width * height]
         }
     }
-    pub fn mutate<'a, F>(&'a mut self, mut mutator: F)
-        where F: FnMut(&'a mut[Color], usize, usize) -> ()
+    pub fn mutate<'a, F>(&'a mut self, mutator: F)
+        where F: FnOnce(&'a mut[Color], usize, usize) -> ()
     {
         mutator(&mut self.colors, self.width, self.height);
     }
