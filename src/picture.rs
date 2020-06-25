@@ -19,7 +19,7 @@ impl Picture {
     {
         mutator(&mut self.colors, self.width, self.height);
     }
-    pub fn print_to_file(&self) {
+    pub fn print_as_ppm(&self) {
         println!("P3");
         println!("{} {}", self.width, self.height);
         println!("255");

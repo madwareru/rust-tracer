@@ -6,7 +6,7 @@ use picture::Picture;
 
 fn main() {
     let mut pic = Picture::new(320, 200);
-    pic.mutate(|colors: &mut[Color], w, h| {
+    pic.mutate(|colors, w, h| {
         for j in 0..h {
             let j_float = j as f32 / h as f32 * 255.99;
             for i in 0..w {
@@ -16,5 +16,5 @@ fn main() {
             }
         }
     });
-    pic.print_to_file();
+    pic.print_as_ppm();
 }
