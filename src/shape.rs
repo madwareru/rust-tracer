@@ -1,19 +1,22 @@
 use crate::ray::{HitTestable, HitInfo, Ray};
 use cgmath::{Vector3, InnerSpace};
+use crate::material::Material;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone)]
 pub enum Shape {
     Sphere {
         center: Vector3<f32>,
-        radius: f32
+        radius: f32,
+        material: Material
     }
 }
 
 impl HitTestable for Shape {
     fn hit_test(&self, ray: &Ray) -> Option<HitInfo> {
         match self {
-            Shape::Sphere { center, radius } => {
+            Shape::Sphere { center, radius, material } => {
                 let radius = *radius;
+                let material = *material;
                 let oc = ray.origin - center;
                 let a = ray.direction.dot(ray.direction);
                 let b = 2.0 * oc.dot(ray.direction);
@@ -28,7 +31,7 @@ impl HitTestable for Shape {
                     } else {
                         let p = ray.get_point_at(t);
                         let n = (p - center) / radius;
-                        Some(HitInfo{ t, p, n })
+                        Some(HitInfo{ t, p, n, material })
                     }
                 }
             },

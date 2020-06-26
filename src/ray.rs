@@ -1,4 +1,5 @@
 use cgmath::Vector3;
+use crate::material::Material;
 
 #[derive(Clone, Copy)]
 pub struct Ray {
@@ -10,7 +11,8 @@ pub struct Ray {
 pub struct HitInfo {
     pub t: f32,
     pub p: Vector3<f32>,
-    pub n: Vector3<f32>
+    pub n: Vector3<f32>,
+    pub material: Material
 }
 
 pub trait HitTestable {
