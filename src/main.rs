@@ -2,6 +2,7 @@ mod color;
 mod picture;
 mod ray;
 mod shape;
+mod world;
 
 use picture::Picture;
 use ray::Ray;
@@ -10,6 +11,7 @@ use cgmath::{Vector3, VectorSpace, InnerSpace};
 use crate::ray::{HitInfo};
 use crate::shape::Shape;
 use rand::prelude::*;
+use crate::world::World;
 
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35, 0.575, 0.875);
@@ -37,7 +39,7 @@ fn main() {
         let width_corr = width_multiplier / 2.0;
         let mut rng = rand::thread_rng();
 
-        let shapes = &[
+        let world = World{ shapes: &[
             Shape::Sphere{
                 center: Vector3::new(0.0, 0.0, -1.0),
                 radius: 0.5
@@ -46,7 +48,7 @@ fn main() {
                 center: Vector3::new(0.0, -14.0, -1.0),
                 radius: 13.5
             }
-        ];
+        ]};
 
         for j in 0..h {
             for i in 0..w {
@@ -62,17 +64,8 @@ fn main() {
                         direction: dir.normalize()
                     };
                     let sky_color = sky_color(&ray);
-                    let mut nearest_hit: Option<HitInfo> = None;
-                    for shape in shapes {
-                        let hit = ray.hit_test(shape);
-                        if let Some(hit_i) = hit {
-                            match nearest_hit {
-                                None => nearest_hit = hit,
-                                Some(hit_info) if hit_info.t > hit_i.t => nearest_hit = hit,
-                                _ => {}
-                            };
-                        }
-                    }
+                    let nearest_hit = ray.hit_test(&world);
+
                     pixel_color += if let Some(HitInfo{n: normal, ..}) = nearest_hit {
                         Vector3::new(normal.x + 1.0, normal.y + 1.0, normal.z + 1.0) * 0.5
                     } else {
