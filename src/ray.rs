@@ -1,5 +1,7 @@
-use cgmath::Vector3;
-use crate::material::Material;
+use {
+    cgmath::Vector3,
+    crate::material::Material
+};
 
 #[derive(Clone, Copy)]
 pub struct Ray {

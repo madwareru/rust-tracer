@@ -1,5 +1,9 @@
-use crate::shape::Shape;
-use crate::ray::{HitTestable, HitInfo, Ray};
+use{
+    crate::{
+        shape::Shape,
+        ray::{HitTestable, HitInfo, Ray}
+    }
+};
 
 pub struct World<'a> {
     pub shapes: &'a[Shape]

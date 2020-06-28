@@ -1,6 +1,8 @@
-use crate::ray::{HitTestable, HitInfo, Ray};
-use cgmath::{Vector3, InnerSpace};
-use crate::material::Material;
+use{
+    cgmath::{Vector3, InnerSpace},
+    crate::ray::{HitTestable, HitInfo, Ray},
+    crate::material::Material
+};
 
 #[derive(Copy, Clone)]
 pub enum Shape {
