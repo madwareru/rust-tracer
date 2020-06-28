@@ -8,6 +8,7 @@ mod camera;
 
 use {
     cgmath::{Vector3, VectorSpace, InnerSpace},
+    std::env,
     rand::prelude::*,
     picture::*,
     ray::*,
@@ -20,7 +21,7 @@ use {
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35/14.0, 0.575/14.0, 0.875/14.0);
-const NUM_SAMPLES: u16 = 512;
+const NUM_SAMPLES: u16 = 128;
 
 const LIGHT_GRAY_MAT: Material = Material {
     albedo: Vector3::new(0.8, 0.8, 0.8),
@@ -97,12 +98,19 @@ fn sample_color<'a>(ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, dept
 }
 
 fn main() {
+    let mut args = env::args();
+    if args.len() < 2 {
+        eprintln!("Usage: rust-tracer N > some.ppm");
+        return;
+    }
     let mut pic = Picture::new(320, 200);
+    let t: u64 = args.nth(1).unwrap().parse().unwrap();
+    let t = t as f32 / 50.0;
     pic.mutate(|colors, w, h| {
         let mut rng = rand::thread_rng();
         let aspect = w as f32 / h as f32;
         let camera = Camera::new(
-            Origin(Vector3::new(0.0, 0.0, -1.0)),
+            Origin(Vector3::new(0.0, 0.0, 1.0) + Vector3::new(2.0 * t.cos(), 0.0, 2.0 * t.sin())),
             Up(Vector3::unit_y()),
             Fov(70.0f32.to_radians()),
             Target(Vector3::new(0.0, 0.0, 1.0))
