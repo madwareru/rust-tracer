@@ -118,11 +118,6 @@ fn main() {
         let (right_vector, up_vector, forward_vector) =
             camera.get_basis_vectors(aspect);
 
-        let height_multiplier = 2.0;
-        let height_corr = height_multiplier / 2.0;
-        let width_multiplier = aspect * height_multiplier;
-        let width_corr = width_multiplier / 2.0;
-
         let world = World{ shapes: &[
             Shape::Sphere{
                 center: Vector3::new(-0.85, -0.0, 1.05),
@@ -175,8 +170,8 @@ fn main() {
             for i in 0..w {
                 let mut pixel_color = Vector3::new(0.0, 0.0, 0.0);
                 for _ in 0..NUM_SAMPLES {
-                    let i = (i as f32 + rng.gen::<f32>() - 0.5) / w as f32 * width_multiplier - width_corr;
-                    let j = ((j as f32 + rng.gen::<f32>() - 0.5) / h as f32 * height_multiplier - height_corr);
+                    let i = (i as f32 + rng.gen::<f32>() - 0.5) / w as f32 * 2.0 - 1.0;
+                    let j = (j as f32 + rng.gen::<f32>() - 0.5) / h as f32 * 2.0 - 1.0;
                     let dir =
                         right_vector * i +
                         up_vector * j +

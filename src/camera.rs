@@ -33,7 +33,7 @@ impl Camera {
         let forward = self.direction.normalize();
         let right = self.up.cross(forward);
         let up = forward.cross(right);
-        (right, up, forward * aspect / (self.fov / 2.0).tan())
+        (right * aspect, up, forward * aspect / (self.fov / 2.0).tan())
     }
 
 }
