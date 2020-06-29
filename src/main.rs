@@ -21,7 +21,7 @@ use {
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35/14.0, 0.575/14.0, 0.875/14.0);
-const NUM_SAMPLES: u16 = 128;
+const NUM_SAMPLES: u16 = 200;
 
 const LIGHT_GRAY_MAT: Material = Material {
     albedo: Vector3::new(0.8, 0.8, 0.8),
@@ -47,6 +47,15 @@ const WHITE_BULB_MAT: Material = Material {
     emittance: 1.0
 };
 
+const DIELECTRIC_MAT: Material = Material {
+    albedo: Vector3::new(0.0, 1.0, 0.4),
+    details: MaterialDetails::Dielectric {
+        ref_idx: 1.5,
+        roughness: 0.0
+    },
+    emittance: 0.0
+};
+
 const RED_MAT: Material = Material {
     albedo: Vector3::new(1.0, 0.25, 0.25),
     details: MaterialDetails::Metallic {roughness: 0.0},
@@ -59,12 +68,62 @@ const ORANGE_MAT: Material = Material {
     emittance: 0.9
 };
 
+const WORLD: World =
+    World{ shapes: &[
+        Shape::Sphere{
+            center: Vector3::new(-0.85, -0.0, 1.05),
+            radius: 0.25,
+            material: WHITE_BULB_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(-0.6, -0.3, 0.7),
+            radius: 0.15,
+            material: DIELECTRIC_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(0.0, 0.0, 1.0),
+            radius: 0.5,
+            material: RED_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(0.25, -0.4, 0.65),
+            radius: 0.1,
+            material: ORANGE_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(-0.25, -0.45, 0.65),
+            radius: 0.05,
+            material: DARK_GRAY_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(0.15, -0.45, 0.55),
+            radius: 0.05,
+            material: DARK_GRAY_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(-0.75, -0.45, 0.75),
+            radius: 0.05,
+            material: DARK_GRAY_MAT
+        },
+        Shape::Sphere{
+            center: Vector3::new(0.0, -100.0, 1.0),
+            radius: 99.5,
+            material: LIGHT_GRAY_MAT_LAMBERT
+        },
+        Shape::Sphere{
+            center: Vector3::new(0.0, 100.0, 1.0),
+            radius: 99.5,
+            material: LIGHT_GRAY_MAT
+        }
+    ]};
+
 fn sky_color(ray: &Ray) -> Vector3<f32> {
     let sun_vector = SUN_VECTOR.normalize();
     let sunny = 1.0 - (sun_vector.dot(ray.direction).max(0.0).powf(16.0));
     WHITE_COLOR.lerp(SKY_COLOR, sunny)
 }
 
+#[inline]
 fn gamma_correct(v: Vector3<f32>) -> Vector3<f32> {
     Vector3 {
         x: v.x.min(1.0).sqrt(),
@@ -73,6 +132,7 @@ fn gamma_correct(v: Vector3<f32>) -> Vector3<f32> {
     }
 }
 
+#[inline]
 fn mul(l: Vector3<f32>, r: Vector3<f32>) -> Vector3<f32> {
     Vector3 {
         x: l.x * r.x,
@@ -103,9 +163,9 @@ fn main() {
         eprintln!("Usage: rust-tracer N > some.ppm");
         return;
     }
-    let mut pic = Picture::new(320, 200);
+    let mut pic = Picture::new(640, 400);
     let t: u64 = args.nth(1).unwrap().parse().unwrap();
-    let t = t as f32 / 50.0;
+    let t = (t + 100) as f32 / 50.0;
     pic.mutate(|colors, w, h| {
         let mut rng = rand::thread_rng();
         let aspect = w as f32 / h as f32;
@@ -117,54 +177,6 @@ fn main() {
         );
         let (right_vector, up_vector, forward_vector) =
             camera.get_basis_vectors(aspect);
-
-        let world = World{ shapes: &[
-            Shape::Sphere{
-                center: Vector3::new(-0.85, -0.0, 1.05),
-                radius: 0.25,
-                material: WHITE_BULB_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(-0.6, -0.2, 0.7),
-                radius: 0.15,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(0.0, 0.0, 1.0),
-                radius: 0.5,
-                material: RED_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(0.25, -0.4, 0.65),
-                radius: 0.1,
-                material: ORANGE_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(-0.25, -0.45, 0.65),
-                radius: 0.05,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(0.15, -0.45, 0.55),
-                radius: 0.05,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(-0.75, -0.45, 0.75),
-                radius: 0.05,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Sphere{
-                center: Vector3::new(0.0, -100.0, 1.0),
-                radius: 99.5,
-                material: LIGHT_GRAY_MAT_LAMBERT
-            },
-            Shape::Sphere{
-                center: Vector3::new(0.0, 100.0, 1.0),
-                radius: 99.5,
-                material: LIGHT_GRAY_MAT
-            }
-        ]};
 
         for j in 0..h {
             for i in 0..w {
@@ -182,7 +194,7 @@ fn main() {
                         direction: dir.normalize()
                     };
 
-                    pixel_color += sample_color(&ray, &world, &mut rng, 10);
+                    pixel_color += sample_color(&ray, &WORLD, &mut rng, 10);
                 }
                 pixel_color /= NUM_SAMPLES as f32;
                 colors[i + j * w] = (gamma_correct(pixel_color) * 255.99).into();
