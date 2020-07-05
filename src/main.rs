@@ -12,6 +12,7 @@ mod vector_utils;
 
 use {
     cgmath::{Vector3, VectorSpace, InnerSpace, vec3},
+    rayon::{prelude::*},
     std::env,
     rand::prelude::*,
     picture::*,
@@ -19,14 +20,13 @@ use {
     shape::*,
     world::*,
     material::*,
-    color::Color,
     camera::{Camera, Origin, Up, Fov, Target}
 };
 
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35/14.0, 0.575/14.0, 0.875/14.0);
-const NUM_SAMPLES: u16 = 1024;
+const NUM_SAMPLES: u16 = 128;
 const FOCUS_DISTANCE: f32 = 1.9;
 const APERTURE: f32 = 0.05;
 
@@ -164,13 +164,14 @@ fn sample_color<'a>(ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, dept
     }
 }
 
-fn render_sample(i: usize,
-                 j: usize,
-                 w: usize,
-                 h: usize,
-                 camera: &Camera,
-                 basis_vectors: (Vector3<f32>, Vector3<f32>, Vector3<f32>)
-    ) -> Vector3<f32>
+fn render_sample(
+    i: usize,
+    j: usize,
+    w: usize,
+    h: usize,
+    camera: Camera,
+    basis_vectors: (Vector3<f32>, Vector3<f32>, Vector3<f32>)
+) -> Vector3<f32>
 {
     let (right_vector, up_vector, forward_vector) = basis_vectors;
     let mut rng = thread_rng();
@@ -196,7 +197,7 @@ fn render_sample(i: usize,
 }
 
 fn render_scene(times: u64) {
-    let mut pic = Picture::new(1280, 800);
+    let mut pic = Picture::new(320, 200);
     let t = (times + 100) as f32 / 50.0;
     pic.mutate(|colors, w, h| {
         let aspect = w as f32 / h as f32;
@@ -206,40 +207,23 @@ fn render_scene(times: u64) {
             Fov(70.0f32.to_radians()),
             Target(Vector3::new(0.0, 0.0, 1.0))
         );
+        let sequence = (0..NUM_SAMPLES).collect::<Vec<_>>();
         let basis_vectors = camera.get_basis_vectors(aspect);
+        let mut stride = 0;
+        let fact_samples = NUM_SAMPLES as f32;
         for j in 0..h {
             for i in 0..w {
-                let mut pixel_color = Vector3::new(0.0, 0.0, 0.0);
-                for _ in 0..NUM_SAMPLES {
-                    pixel_color += render_sample(i, j, w, h, &camera, basis_vectors);
-                }
-                pixel_color /= NUM_SAMPLES as f32;
-                colors[i + j * w] = (gamma_correct(pixel_color) * 255.99).into();
-            }
-        }
-    });
-    pic.print_as_ppm();
-}
+                let pixel_color = sequence
+                    .par_iter()
+                    .cloned()
+                    .map(|_| render_sample(i, j, w, h, camera, basis_vectors))
+                    .reduce(
+                        || vec3(0.0, 0.0, 0.0),
+                        |a, b| a + b
+                    ) / fact_samples;
 
-fn render_disc(times: u64) {
-    let mut pic = Picture::new(320, 200);
-    pic.mutate(|colors, w, h| {
-        let mut rng = rand::thread_rng();
-        for _ in 0..times {
-            let disk = vector_utils::get_random_in_unit_disk(&mut rng);
-            let disk = disk * 100.0 +
-                vec3(160.0, 100.0, 0.0);
-            let x = (disk.x - 0.5) as i32;
-            let y = (disk.y - 0.5) as i32;
-            for j in 0..2 {
-                for i in 0..2 {
-                    let ox = x + i;
-                    let oy = y + j;
-                    if (ox < w as i32) && (ox >= 0) && (oy < h as i32) && (oy >= 0) {
-                        let idx = ox as usize + oy as usize * w;
-                        colors[idx] = Color { r: 255, g: 255, b: 255};
-                    }
-                }
+                colors[stride] = (gamma_correct(pixel_color) * 255.99).into();
+                stride += 1;
             }
         }
     });
@@ -253,6 +237,5 @@ fn main() {
         return;
     }
     let t: u64 = args.nth(1).unwrap().parse().unwrap();
-    //render_disc(t);
     render_scene(t);
 }
