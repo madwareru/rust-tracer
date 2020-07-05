@@ -1,5 +1,5 @@
 use {
-    cgmath::{Vector3, VectorSpace, InnerSpace}
+    cgmath::{Vector3, InnerSpace}
 };
 
 pub struct Origin(pub Vector3<f32>);

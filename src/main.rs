@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate lazy_static;
+
 mod color;
 mod picture;
 mod ray;
@@ -5,9 +8,10 @@ mod shape;
 mod world;
 mod material;
 mod camera;
+mod vector_utils;
 
 use {
-    cgmath::{Vector3, VectorSpace, InnerSpace},
+    cgmath::{Vector3, VectorSpace, InnerSpace, vec3},
     std::env,
     rand::prelude::*,
     picture::*,
@@ -15,13 +19,16 @@ use {
     shape::*,
     world::*,
     material::*,
+    color::Color,
     camera::{Camera, Origin, Up, Fov, Target}
 };
 
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35/14.0, 0.575/14.0, 0.875/14.0);
-const NUM_SAMPLES: u16 = 200;
+const NUM_SAMPLES: u16 = 1024;
+const FOCUS_DISTANCE: f32 = 1.9;
+const APERTURE: f32 = 0.05;
 
 const LIGHT_GRAY_MAT: Material = Material {
     albedo: Vector3::new(0.8, 0.8, 0.8),
@@ -157,17 +164,41 @@ fn sample_color<'a>(ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, dept
     }
 }
 
-fn main() {
-    let mut args = env::args();
-    if args.len() < 2 {
-        eprintln!("Usage: rust-tracer N > some.ppm");
-        return;
-    }
-    let mut pic = Picture::new(640, 400);
-    let t: u64 = args.nth(1).unwrap().parse().unwrap();
-    let t = (t + 100) as f32 / 50.0;
+fn render_sample(i: usize,
+                 j: usize,
+                 w: usize,
+                 h: usize,
+                 camera: &Camera,
+                 basis_vectors: (Vector3<f32>, Vector3<f32>, Vector3<f32>)
+    ) -> Vector3<f32>
+{
+    let (right_vector, up_vector, forward_vector) = basis_vectors;
+    let mut rng = thread_rng();
+    let i = (i as f32 + rng.gen::<f32>() - 0.5) / w as f32 * 2.0 - 1.0;
+    let j = (j as f32 + rng.gen::<f32>() - 0.5) / h as f32 * 2.0 - 1.0;
+    let dir =
+        (right_vector * i +
+        up_vector * j +
+        forward_vector).normalize() * FOCUS_DISTANCE;
+
+    let offset_disk = vector_utils::get_random_in_unit_disk(&mut rng) * APERTURE;
+    let origin_with_offset =
+        camera.origin +
+        right_vector * offset_disk.x +
+        up_vector * offset_disk.y;
+
+    let ray = Ray{
+        origin: origin_with_offset,
+        direction: (camera.origin + dir - origin_with_offset).normalize()
+    };
+
+    sample_color(&ray, &WORLD, &mut rng, 10)
+}
+
+fn render_scene(times: u64) {
+    let mut pic = Picture::new(1280, 800);
+    let t = (times + 100) as f32 / 50.0;
     pic.mutate(|colors, w, h| {
-        let mut rng = rand::thread_rng();
         let aspect = w as f32 / h as f32;
         let camera = Camera::new(
             Origin(Vector3::new(0.0, 0.0, 1.0) + Vector3::new(2.0 * t.cos(), 0.0, 2.0 * t.sin())),
@@ -175,26 +206,12 @@ fn main() {
             Fov(70.0f32.to_radians()),
             Target(Vector3::new(0.0, 0.0, 1.0))
         );
-        let (right_vector, up_vector, forward_vector) =
-            camera.get_basis_vectors(aspect);
-
+        let basis_vectors = camera.get_basis_vectors(aspect);
         for j in 0..h {
             for i in 0..w {
                 let mut pixel_color = Vector3::new(0.0, 0.0, 0.0);
                 for _ in 0..NUM_SAMPLES {
-                    let i = (i as f32 + rng.gen::<f32>() - 0.5) / w as f32 * 2.0 - 1.0;
-                    let j = (j as f32 + rng.gen::<f32>() - 0.5) / h as f32 * 2.0 - 1.0;
-                    let dir =
-                        right_vector * i +
-                        up_vector * j +
-                        forward_vector;
-
-                    let ray = Ray{
-                        origin: camera.origin,
-                        direction: dir.normalize()
-                    };
-
-                    pixel_color += sample_color(&ray, &WORLD, &mut rng, 10);
+                    pixel_color += render_sample(i, j, w, h, &camera, basis_vectors);
                 }
                 pixel_color /= NUM_SAMPLES as f32;
                 colors[i + j * w] = (gamma_correct(pixel_color) * 255.99).into();
@@ -202,4 +219,40 @@ fn main() {
         }
     });
     pic.print_as_ppm();
+}
+
+fn render_disc(times: u64) {
+    let mut pic = Picture::new(320, 200);
+    pic.mutate(|colors, w, h| {
+        let mut rng = rand::thread_rng();
+        for _ in 0..times {
+            let disk = vector_utils::get_random_in_unit_disk(&mut rng);
+            let disk = disk * 100.0 +
+                vec3(160.0, 100.0, 0.0);
+            let x = (disk.x - 0.5) as i32;
+            let y = (disk.y - 0.5) as i32;
+            for j in 0..2 {
+                for i in 0..2 {
+                    let ox = x + i;
+                    let oy = y + j;
+                    if (ox < w as i32) && (ox >= 0) && (oy < h as i32) && (oy >= 0) {
+                        let idx = ox as usize + oy as usize * w;
+                        colors[idx] = Color { r: 255, g: 255, b: 255};
+                    }
+                }
+            }
+        }
+    });
+    pic.print_as_ppm();
+}
+
+fn main() {
+    let mut args = env::args();
+    if args.len() < 2 {
+        eprintln!("Usage: rust-tracer N > some.ppm");
+        return;
+    }
+    let t: u64 = args.nth(1).unwrap().parse().unwrap();
+    //render_disc(t);
+    render_scene(t);
 }

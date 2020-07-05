@@ -1,15 +1,12 @@
 use {
     cgmath::{Vector3, InnerSpace, vec3},
     crate::ray::{HitInfo, Ray},
+    crate::vector_utils::*,
     rand:: {
         prelude::ThreadRng,
-        distributions::Uniform,
-        distributions::Distribution,
         Rng
     }
 };
-
-const GOLDEN_RATIO_NUM_SAMPLES: usize = 1024*1024*8;
 
 #[derive(Copy, Clone)]
 pub enum MaterialDetails {
@@ -23,21 +20,6 @@ pub struct Material {
     pub albedo: Vector3<f32>,
     pub emittance: f32,
     pub details: MaterialDetails
-}
-
-fn get_random_in_unit_sphere(rng: &mut ThreadRng) -> Vector3<f32> {
-    use std::f32::consts::PI;
-    let mut between = Uniform::from(0..GOLDEN_RATIO_NUM_SAMPLES);
-    let sample: f32 = {
-        let v = between.sample(rng);
-        v as f32 + 0.5
-    };
-    let phi_cos = 1.0 - 2.0 * sample / GOLDEN_RATIO_NUM_SAMPLES as f32;
-    let phi = phi_cos.acos();
-    let theta = PI * (1.0 + 5.0f32.sqrt()) * sample;
-    let phi_sin = phi.sin();
-
-    vec3(phi_sin * theta.cos(), phi_sin * theta.sin(), phi_cos)
 }
 
 fn reflect(v: &Vector3<f32>, n: &Vector3<f32>) -> Vector3<f32> {
