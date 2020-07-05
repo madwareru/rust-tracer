@@ -130,7 +130,7 @@ const WORLD: World =
         Shape::Romboid{
             center: Vector3::new(-0.2, -0.45, 0.4),
             up: vec3(0.0, 1.0, 0.0),
-            right: vec3(0.0, 0.0, -1.0),
+            right: vec3(0.0, 0.0, 1.0),
             w: 0.05,
             h: 0.05,
             material: LIGHT_GRAY_MAT
@@ -138,7 +138,7 @@ const WORLD: World =
         Shape::Romboid{
             center: Vector3::new(-0.3, -0.45, 0.4),
             up: vec3(0.0, 1.0, 0.0),
-            right: vec3(0.0, 0.0, 1.0),
+            right: vec3(0.0, 0.0, -1.0),
             w: 0.05,
             h: 0.05,
             material: LIGHT_GRAY_MAT
