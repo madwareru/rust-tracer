@@ -25,10 +25,11 @@ use {
 
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
-const SKY_COLOR: Vector3<f32> = Vector3::new(0.35/14.0, 0.575/14.0, 0.875/14.0);
-const NUM_SAMPLES: u16 = 128;
+const SKY_COLOR: Vector3<f32> = Vector3::new(0.35 / 14.0, 0.575 / 14.0, 0.875 / 14.0);
+const NUM_SAMPLES: u16 = 192;
 const FOCUS_DISTANCE: f32 = 1.9;
-const APERTURE: f32 = 0.05;
+const APERTURE: f32 = 0.005;
+const MAX_T: f32 = 400.0;
 
 const LIGHT_GRAY_MAT: Material = Material {
     albedo: Vector3::new(0.8, 0.8, 0.8),
@@ -49,7 +50,7 @@ const LIGHT_GRAY_MAT_LAMBERT: Material = Material {
 };
 
 const WHITE_BULB_MAT: Material = Material {
-    albedo: Vector3::new(1.0, 1.0, 1.0),
+    albedo: Vector3::new(3.0, 3.0, 3.0),
     details: MaterialDetails::Lambertian,
     emittance: 1.0
 };
@@ -77,9 +78,22 @@ const ORANGE_MAT: Material = Material {
 
 const WORLD: World =
     World{ shapes: &[
-        Shape::Sphere{
-            center: Vector3::new(-0.85, -0.0, 1.05),
-            radius: 0.25,
+        Shape::Disk{
+            center: Vector3::new(-0.85, 0.49, 1.05),
+            radius: 0.125,
+            normal: vec3(0.0, -1.0, 0.0),
+            material: WHITE_BULB_MAT
+        },
+        Shape::Disk{
+            center: Vector3::new(0.85, 0.49, 1.05),
+            radius: 0.125 / 2.0,
+            normal: vec3(0.0, -1.0, 0.0),
+            material: WHITE_BULB_MAT
+        },
+        Shape::Disk{
+            center: Vector3::new(0.0, 0.49, -1.05),
+            radius: 0.125 / 4.0,
+            normal: vec3(0.0, -1.0, 0.0),
             material: WHITE_BULB_MAT
         },
         Shape::Sphere{
@@ -97,10 +111,45 @@ const WORLD: World =
             radius: 0.1,
             material: ORANGE_MAT
         },
-        Shape::Sphere{
-            center: Vector3::new(-0.25, -0.45, 0.65),
-            radius: 0.05,
-            material: DARK_GRAY_MAT
+        Shape::Romboid{
+            center: Vector3::new(-0.25, -0.45, 0.35),
+            up: vec3(0.0, 1.0, 0.0),
+            right: vec3(1.0, 0.0, 0.0),
+            w: 0.05,
+            h: 0.05,
+            material: LIGHT_GRAY_MAT
+        },
+        Shape::Romboid{
+            center: Vector3::new(-0.25, -0.45, 0.45),
+            up: vec3(0.0, 1.0, 0.0),
+            right: vec3(-1.0, 0.0, 0.0),
+            w: 0.05,
+            h: 0.05,
+            material: LIGHT_GRAY_MAT
+        },
+        Shape::Romboid{
+            center: Vector3::new(-0.2, -0.45, 0.4),
+            up: vec3(0.0, 1.0, 0.0),
+            right: vec3(0.0, 0.0, -1.0),
+            w: 0.05,
+            h: 0.05,
+            material: LIGHT_GRAY_MAT
+        },
+        Shape::Romboid{
+            center: Vector3::new(-0.3, -0.45, 0.4),
+            up: vec3(0.0, 1.0, 0.0),
+            right: vec3(0.0, 0.0, 1.0),
+            w: 0.05,
+            h: 0.05,
+            material: LIGHT_GRAY_MAT
+        },
+        Shape::Romboid{
+            center: Vector3::new(-0.25, -0.4, 0.4),
+            up: vec3(-1.0, 0.0, 0.0),
+            right: vec3(0.0, 0.0, 1.0),
+            w: 0.05,
+            h: 0.05,
+            material: LIGHT_GRAY_MAT
         },
         Shape::Sphere{
             center: Vector3::new(0.15, -0.45, 0.55),
@@ -112,9 +161,10 @@ const WORLD: World =
             radius: 0.05,
             material: DARK_GRAY_MAT
         },
-        Shape::Sphere{
-            center: Vector3::new(0.0, -100.0, 1.0),
-            radius: 99.5,
+        Shape::Disk{
+            center: Vector3::new(0.0, -0.5, 1.0),
+            radius: 2.0,
+            normal: vec3(0.0, 1.0, 0.0),
             material: LIGHT_GRAY_MAT_LAMBERT
         },
         Shape::Sphere{
@@ -153,14 +203,20 @@ fn sample_color<'a>(ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, dept
     if depth == 0 {
         return Vector3::new(0.0, 0.0, 0.0);
     }
-    if let Some(HitInfo{material, ..}) = nearest_hit {
+    let sky_clr = sky_color(&ray);
+    if let Some(HitInfo{material, t, ..}) = nearest_hit {
         if let Some((clr, ray_reflect)) = material.scatter(&ray, rng, &nearest_hit.unwrap()) {
-            mul(sample_color(&ray_reflect, world, rng, depth-1), clr).lerp(material.albedo, material.emittance)
+            let c = mul(sample_color(&ray_reflect, world, rng, depth-1), clr).lerp(material.albedo, material.emittance);
+            if t > MAX_T {
+                sky_clr
+            } else {
+                c
+            }
         } else {
             Vector3::new(0.0, 0.0, 0.0)
         }
     } else {
-        sky_color(&ray)
+        sky_clr
     }
 }
 
@@ -197,7 +253,7 @@ fn render_sample(
 }
 
 fn render_scene(times: u64) {
-    let mut pic = Picture::new(320, 200);
+    let mut pic = Picture::new(640, 400);
     let t = (times + 100) as f32 / 50.0;
     pic.mutate(|colors, w, h| {
         let aspect = w as f32 / h as f32;
