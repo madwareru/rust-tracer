@@ -3,6 +3,7 @@ use{
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
 };
+use cgmath::{Quaternion, Rotation};
 
 #[derive(Copy, Clone)]
 pub enum Shape {
@@ -23,6 +24,12 @@ pub enum Shape {
         right: Vector3<f32>,
         w: f32,
         h: f32,
+        material: Material
+    },
+    Cube {
+        center: Vector3<f32>,
+        sizes: Vector3<f32>,
+        rotation: Quaternion<f32>,
         material: Material
     }
 }
@@ -105,6 +112,46 @@ impl HitTestable for Shape {
                         }
                     }
                 }
+            }
+            Shape::Cube { center, sizes: Vector3{x: xs, y: ys, z: zs}, material, rotation } => {
+                let center = *center;
+                let sizes = *sizes;
+                let mut hit_info_maybe = None;
+                let mut half_sizes = sizes / 2.0;
+
+                let i = (rotation * Vector3::unit_x()).normalize();
+                let j = (rotation * Vector3::unit_y()).normalize();
+                let k = (rotation * Vector3::unit_z()).normalize();
+
+                for (normal, center) in &[
+                    ( i.clone(), center + i.clone() * xs),
+                    (-i.clone(), center - i.clone() * xs),
+                    ( j.clone(), center + j.clone() * ys),
+                    (-j.clone(), center - j.clone() * ys),
+                    ( k.clone(), center + k.clone() * zs),
+                    (-k.clone(), center - k.clone() * zs)
+                ] {
+                    match test_ray_plane_intersection(&center, &normal, &ray, &material) {
+                        None => {},
+                        Some(hit_info) => {
+                            let diff = hit_info.p - center;
+                            if !(
+                                diff.dot(i.clone()).abs() > half_sizes.x ||
+                                diff.dot(j.clone()).abs() > half_sizes.y ||
+                                diff.dot(k.clone()).abs() > half_sizes.z
+                            ) {
+                                match hit_info_maybe {
+                                    None => hit_info_maybe = Some(hit_info),
+                                    Some(old_hit_info) if old_hit_info.t > hit_info.t =>{
+                                        hit_info_maybe = Some(hit_info)
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        },
+                    }
+                };
+                hit_info_maybe
             }
         }
     }

@@ -22,13 +22,14 @@ use {
     material::*,
     camera::{Camera, Origin, Up, Fov, Target}
 };
+use cgmath::Quaternion;
 
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
 const SKY_COLOR: Vector3<f32> = Vector3::new(0.35 / 14.0, 0.575 / 14.0, 0.875 / 14.0);
-const NUM_SAMPLES: u16 = 192;
+const NUM_SAMPLES: u16 = 512;
 const FOCUS_DISTANCE: f32 = 1.9;
-const APERTURE: f32 = 0.005;
+const APERTURE: f32 = 0.05;
 const MAX_T: f32 = 400.0;
 
 const LIGHT_GRAY_MAT: Material = Material {
@@ -40,6 +41,12 @@ const LIGHT_GRAY_MAT: Material = Material {
 const DARK_GRAY_MAT: Material = Material {
     albedo: Vector3::new(0.1, 0.1, 0.1),
     details: MaterialDetails::Metallic {roughness: 0.6},
+    emittance: 0.0
+};
+
+const BLUE_MAT: Material = Material {
+    albedo: Vector3::new(0.1, 0.1, 1.0),
+    details: MaterialDetails::Dielectric { ref_idx: 1.1, roughness: 0.1 },
     emittance: 0.0
 };
 
@@ -111,45 +118,11 @@ const WORLD: World =
             radius: 0.1,
             material: ORANGE_MAT
         },
-        Shape::Romboid{
-            center: Vector3::new(-0.25, -0.45, 0.35),
-            up: vec3(0.0, 1.0, 0.0),
-            right: vec3(1.0, 0.0, 0.0),
-            w: 0.05,
-            h: 0.05,
-            material: LIGHT_GRAY_MAT
-        },
-        Shape::Romboid{
-            center: Vector3::new(-0.25, -0.45, 0.45),
-            up: vec3(0.0, 1.0, 0.0),
-            right: vec3(-1.0, 0.0, 0.0),
-            w: 0.05,
-            h: 0.05,
-            material: LIGHT_GRAY_MAT
-        },
-        Shape::Romboid{
-            center: Vector3::new(-0.2, -0.45, 0.4),
-            up: vec3(0.0, 1.0, 0.0),
-            right: vec3(0.0, 0.0, 1.0),
-            w: 0.05,
-            h: 0.05,
-            material: LIGHT_GRAY_MAT
-        },
-        Shape::Romboid{
-            center: Vector3::new(-0.3, -0.45, 0.4),
-            up: vec3(0.0, 1.0, 0.0),
-            right: vec3(0.0, 0.0, -1.0),
-            w: 0.05,
-            h: 0.05,
-            material: LIGHT_GRAY_MAT
-        },
-        Shape::Romboid{
-            center: Vector3::new(-0.25, -0.4, 0.4),
-            up: vec3(-1.0, 0.0, 0.0),
-            right: vec3(0.0, 0.0, 1.0),
-            w: 0.05,
-            h: 0.05,
-            material: LIGHT_GRAY_MAT
+        Shape::Cube {
+            center: Vector3::new(-0.25, -0.4, 0.35),
+            sizes: vec3(0.2, 0.2, 0.2),
+            rotation: Quaternion::new(0.5, 0.0, 1.0, 0.0),
+            material: BLUE_MAT
         },
         Shape::Sphere{
             center: Vector3::new(0.15, -0.45, 0.55),
