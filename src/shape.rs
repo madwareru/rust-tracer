@@ -3,7 +3,7 @@ use{
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
 };
-use cgmath::{Quaternion, Rotation};
+use cgmath::{Quaternion, Rotation, vec3};
 
 #[derive(Copy, Clone)]
 pub enum Shape {
@@ -113,15 +113,16 @@ impl HitTestable for Shape {
                     }
                 }
             }
-            Shape::Cube { center, sizes: Vector3{x: xs, y: ys, z: zs}, material, rotation } => {
+            Shape::Cube { center, sizes, material, rotation } => {
                 let center = *center;
-                let sizes = *sizes;
                 let mut hit_info_maybe = None;
                 let mut half_sizes = sizes / 2.0;
 
                 let i = (rotation * Vector3::unit_x()).normalize();
                 let j = (rotation * Vector3::unit_y()).normalize();
                 let k = (rotation * Vector3::unit_z()).normalize();
+
+                let Vector3{x: xs, y: ys, z: zs} = half_sizes;
 
                 for (normal, center) in &[
                     ( i.clone(), center + i.clone() * xs),
@@ -136,9 +137,9 @@ impl HitTestable for Shape {
                         Some(hit_info) => {
                             let diff = hit_info.p - center;
                             if !(
-                                diff.dot(i.clone()).abs() > half_sizes.x ||
-                                diff.dot(j.clone()).abs() > half_sizes.y ||
-                                diff.dot(k.clone()).abs() > half_sizes.z
+                                diff.dot(i.clone()).abs() > xs ||
+                                diff.dot(j.clone()).abs() > ys ||
+                                diff.dot(k.clone()).abs() > zs
                             ) {
                                 match hit_info_maybe {
                                     None => hit_info_maybe = Some(hit_info),

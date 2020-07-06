@@ -236,15 +236,14 @@ fn render_scene(times: u64) {
             Fov(70.0f32.to_radians()),
             Target(Vector3::new(0.0, 0.0, 1.0))
         );
-        let sequence = (0..NUM_SAMPLES).collect::<Vec<_>>();
+        // let sequence = (0..NUM_SAMPLES).collect::<Vec<_>>();
         let basis_vectors = camera.get_basis_vectors(aspect);
         let mut stride = 0;
         let fact_samples = NUM_SAMPLES as f32;
         for j in 0..h {
             for i in 0..w {
-                let pixel_color = sequence
-                    .par_iter()
-                    .cloned()
+                let pixel_color = (0..NUM_SAMPLES)
+                    .into_par_iter()
                     .map(|_| render_sample(i, j, w, h, camera, basis_vectors))
                     .reduce(
                         || vec3(0.0, 0.0, 0.0),
