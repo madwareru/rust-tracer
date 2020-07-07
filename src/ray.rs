@@ -1,5 +1,6 @@
 use {
     cgmath::Vector3,
+    cgmath::Vector2,
     crate::material::Material
 };
 
@@ -14,7 +15,8 @@ pub struct HitInfo {
     pub t: f32,
     pub p: Vector3<f32>,
     pub n: Vector3<f32>,
-    pub material: Material
+    pub material: Material,
+    pub uv: Option<Vector2<f32>>
 }
 
 pub trait HitTestable {

@@ -1,9 +1,16 @@
 use{
-    cgmath::{Vector3, InnerSpace},
+    cgmath::{
+        Vector2,
+        Vector3,
+        InnerSpace,
+        Quaternion,
+        Rotation,
+        vec2,
+        vec3
+    },
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
 };
-use cgmath::{Quaternion, Rotation, vec3};
 
 #[derive(Copy, Clone)]
 pub enum Shape {
@@ -53,10 +60,9 @@ fn test_ray_plane_intersection(
             None
         } else {
             let p = ray.get_point_at(t);
-            let pc = p - center;
             let n = *normal;
             let material = *material;
-            Some(HitInfo{ t, p, n, material })
+            Some(HitInfo{ t, p, n, material, uv: None })
         }
     }
 }
@@ -81,7 +87,8 @@ impl HitTestable for Shape {
                     } else {
                         let p = ray.get_point_at(t);
                         let n = (p - center) / radius;
-                        Some(HitInfo{ t, p, n, material })
+                        let uv = vec2((n.z).atan2(n.x).to_degrees() / 180.0, (n.y + 1.0) * 0.5);
+                        Some(HitInfo{ t, p, n, material, uv: Some(uv) })
                     }
                 }
             },
@@ -136,10 +143,27 @@ impl HitTestable for Shape {
                         None => {},
                         Some(hit_info) => {
                             let diff = hit_info.p - center;
+                            let x_project = diff.dot(i.clone());
+                            let y_project = diff.dot(j.clone());
+                            let z_project = diff.dot(k.clone());
+
+                            let nx_project = normal.dot(i);
+                            let ny_project = normal.dot(j);
+
+                            let uv = if nx_project >= 0.999 || nx_project <= -0.999 {
+                                vec2(y_project / ys + 1.0, z_project / zs + 1.0) * 0.5
+                            } else if ny_project >= 0.999 || ny_project <= -0.999 {
+                                vec2(x_project / xs + 1.0, z_project / zs + 1.0) * 0.5
+                            } else {
+                                vec2(x_project / xs + 1.0, y_project / ys + 1.0) * 0.5
+                            };
+
+                            let hit_info = HitInfo{uv: Some(uv), ..hit_info};
+
                             if !(
-                                diff.dot(i.clone()).abs() > xs ||
-                                diff.dot(j.clone()).abs() > ys ||
-                                diff.dot(k.clone()).abs() > zs
+                                x_project.abs() > xs ||
+                                y_project.abs() > ys ||
+                                z_project.abs() > zs
                             ) {
                                 match hit_info_maybe {
                                     None => hit_info_maybe = Some(hit_info),
