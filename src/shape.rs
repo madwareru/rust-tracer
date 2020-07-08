@@ -19,16 +19,8 @@ pub enum Shape<'a> {
     },
     Disk {
         center: Vector3<f32>,
-        normal: Vector3<f32>,
         radius: f32,
-        material: Material<'a>
-    },
-    Romboid {
-        center: Vector3<f32>,
-        up: Vector3<f32>,
-        right: Vector3<f32>,
-        w: f32,
-        h: f32,
+        rotation: Quaternion<f32>,
         material: Material<'a>
     },
     Cube {
@@ -98,34 +90,27 @@ impl HitTestable for Shape<'_> {
                     }
                 }
             },
-            Shape::Disk { center, normal, radius, material } => {
-                match test_ray_plane_intersection(&center, &normal, ray, &material) {
+            Shape::Disk { center, radius, rotation, material } => {
+                let i = (rotation * Vector3::unit_x()).normalize();
+                let j = (rotation * Vector3::unit_y()).normalize();
+                let k = (rotation * Vector3::unit_z()).normalize();
+                match test_ray_plane_intersection(&center, &j, ray, &material) {
                     None => None,
                     Some(hit_info) => {
                         let pc = hit_info.p - center;
-                        if pc.dot(pc) > radius*radius {
+                        let r = pc.dot(pc) / (radius*radius);
+                        if r > 1.0 {
                             None
                         } else {
-                            Some(hit_info)
+                            let uv = vec2(
+                                k.dot(pc).atan2(i.dot(pc)).to_degrees() / 180.0,
+                                r
+                            );
+                            Some(HitInfo{uv: Some(uv), ..hit_info})
                         }
                     }
                 }
             },
-            Shape::Romboid { center, up, right, w, h, material } => {
-                let normal = up.cross(*right).normalize();
-                match test_ray_plane_intersection(&center, &normal, ray, &material) {
-                    None => None,
-                    Some(hit_info) => {
-                        let pc = hit_info.p - center;
-                        if pc.dot(right.normalize()).abs() > *w ||
-                           pc.dot(up.normalize()).abs() > *h {
-                            None
-                        } else {
-                            Some(hit_info)
-                        }
-                    }
-                }
-            }
             Shape::Cube { center, sizes, material, rotation } => {
                 let center = *center;
                 let mut hit_info_maybe = None;

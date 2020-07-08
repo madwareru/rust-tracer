@@ -13,7 +13,7 @@ mod scene;
 mod image_loader;
 
 use {
-    cgmath::{Vector3, Quaternion, vec3},
+    cgmath::{Vector3, Quaternion, Euler, vec3, Angle},
     png::{Decoder, ColorType},
     std::env,
     shape::*,
@@ -23,6 +23,7 @@ use {
     scene::*
 };
 use crate::image_loader::ImgData;
+use cgmath::Rad;
 
 const NUM_SAMPLES: u16 = 512;
 const FOCUS_DISTANCE: f32 = 1.6;
@@ -97,7 +98,8 @@ fn main() {
     }
     let t: u64 = args.nth(1).unwrap().parse().unwrap();
 
-    let quat_identity = Quaternion::new(0.0, 0.0, 1.0, 0.0);
+    let quat_identity: Quaternion<f32> = Quaternion::new(0.0, 0.0, 1.0, 0.0);
+    let quat_flip180_z: Quaternion<f32> = Euler::new(Rad(0.0), Rad(0.0), Rad(180.0f32.to_radians())).into();
 
     let ImgData{
         width: moon_map_width,
@@ -111,6 +113,18 @@ fn main() {
         emittance: 0.0
     };
 
+    let ImgData{
+        width: earth_map_width,
+        height: earth_map_height,
+        colors: earth_map_colors
+    } = load_png(EARTH_MAP_BYTES);
+
+    let earth_map_mat = Material {
+        albedo: Albedo::Texture(earth_map_width, earth_map_height, &earth_map_colors),
+        details: MaterialDetails::Lambertian,
+        emittance: 0.0
+    };
+
     let scene = Scene {
         focus_distance: FOCUS_DISTANCE,
         aperture: APERTURE,
@@ -120,19 +134,19 @@ fn main() {
             Shape::Disk{
                 center: Vector3::new(-0.85, 0.49, 1.05),
                 radius: 0.125,
-                normal: vec3(0.0, -1.0, 0.0),
+                rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Disk{
                 center: Vector3::new(0.85, 0.49, 1.05),
                 radius: 0.125 / 2.0,
-                normal: vec3(0.0, -1.0, 0.0),
+                rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Disk{
                 center: Vector3::new(0.0, 0.49, -1.05),
                 radius: 0.125 / 4.0,
-                normal: vec3(0.0, -1.0, 0.0),
+                rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Sphere{
@@ -174,8 +188,8 @@ fn main() {
             Shape::Disk{
                 center: Vector3::new(0.0, -0.5, 1.0),
                 radius: 2.0,
-                normal: vec3(0.0, 1.0, 0.0),
-                material: LIGHT_GRAY_MAT_LAMBERT
+                rotation: quat_identity,
+                material: earth_map_mat
             },
             Shape::Sphere{
                 center: Vector3::new(0.0, 100.0, 1.0),
