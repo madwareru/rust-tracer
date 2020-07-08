@@ -14,6 +14,7 @@ pub enum Shape<'a> {
     Sphere {
         center: Vector3<f32>,
         radius: f32,
+        rotation: Quaternion<f32>,
         material: Material<'a>
     },
     Disk {
@@ -67,9 +68,14 @@ fn test_ray_plane_intersection<'a>(
 impl HitTestable for Shape<'_> {
     fn hit_test(&self, ray: &Ray) -> Option<HitInfo> {
         match self {
-            Shape::Sphere { center, radius, material } => {
+            Shape::Sphere { center, radius, rotation, material } => {
                 let radius = *radius;
                 let material = *material;
+
+                let i = (rotation * Vector3::unit_x()).normalize();
+                let j = (rotation * Vector3::unit_y()).normalize();
+                let k = (rotation * Vector3::unit_z()).normalize();
+
                 let oc = ray.origin - center;
                 let a = ray.direction.dot(ray.direction);
                 let b = 2.0 * oc.dot(ray.direction);
@@ -84,7 +90,10 @@ impl HitTestable for Shape<'_> {
                     } else {
                         let p = ray.get_point_at(t);
                         let n = (p - center) / radius;
-                        let uv = vec2((n.z).atan2(n.x).to_degrees() / 180.0, (n.y + 1.0) * 0.5);
+                        let x_proj = i.dot(n);
+                        let y_proj = j.dot(n);
+                        let z_proj = k.dot(n);
+                        let uv = vec2(z_proj.atan2(x_proj).to_degrees() / 180.0, (y_proj + 1.0) * 0.5);
                         Some(HitInfo{ t, p, n, material, uv: Some(uv) })
                     }
                 }

@@ -34,15 +34,20 @@ impl AlbedoFn for Albedo<'_> {
                 }
             },
             Albedo::Texture(w, h, pixels) => {
-                let (u, v) = (uv.x as usize, uv.y as usize);
-                let (h_t, v_t) = (uv.x - u as f32, uv.y - v as f32);
+                let (w, h) = (*w, *h);
+                let (wf, hf) = (w as f32, h as f32);
+                let (u, v) = (uv.x * wf, hf - uv.y * hf);
+                let (h_t, v_t) = (u.fract(), v.fract());
 
-                let next_u = (u + 1).min(*w);
-                let next_v = (v + 1).min(*h);
-                let px0_idx = u + v * *w;
-                let px1_idx = next_u + v * *w;
-                let px2_idx = u + next_v * *w;
-                let px3_idx = next_u + next_v * *w;
+                let u = (u.trunc() as usize).min(w - 1);
+                let v = (v.trunc() as usize).min(h - 1);
+                let next_u = (u + 1).min(w - 1);
+                let next_v = (v + 1).min(h - 1);
+
+                let px0_idx = u + v * w;
+                let px1_idx = next_u + v * w;
+                let px2_idx = u + next_v * w;
+                let px3_idx = next_u + next_v * w;
                 let p0 = pixels[px0_idx].lerp(pixels[px1_idx], h_t);
                 let p1 = pixels[px2_idx].lerp(pixels[px3_idx], h_t);
                 p0.lerp(p1, v_t)
