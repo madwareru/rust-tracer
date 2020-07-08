@@ -22,7 +22,7 @@ use {
     material::*,
     camera::{Camera, Origin, Up, Fov, Target}
 };
-use cgmath::Quaternion;
+use cgmath::{Quaternion, vec2};
 
 const SUN_VECTOR: Vector3<f32> = Vector3::new(0.7, 0.7, -0.5);
 const WHITE_COLOR: Vector3<f32> = Vector3::new(1.0, 1.0, 1.0);
@@ -33,37 +33,37 @@ const APERTURE: f32 = 0.05;
 const MAX_T: f32 = 400.0;
 
 const LIGHT_GRAY_MAT: Material = Material {
-    albedo: Vector3::new(0.8, 0.8, 0.8),
+    albedo: Albedo::Constant(vec3(0.8, 0.8, 0.8)),
     details: MaterialDetails::Metallic {roughness: 0.2},
     emittance: 0.0
 };
 
 const DARK_GRAY_MAT: Material = Material {
-    albedo: Vector3::new(0.1, 0.1, 0.1),
+    albedo: Albedo::Constant(vec3(0.1, 0.1, 0.1)),
     details: MaterialDetails::Metallic {roughness: 0.6},
     emittance: 0.0
 };
 
 const BLUE_MAT: Material = Material {
-    albedo: Vector3::new(0.1, 0.1, 1.0),
+    albedo: Albedo::Constant(vec3(0.1, 0.1, 1.0)),
     details: MaterialDetails::Dielectric { ref_idx: 1.1, roughness: 0.1 },
     emittance: 0.0
 };
 
 const LIGHT_GRAY_MAT_LAMBERT: Material = Material {
-    albedo: Vector3::new(0.8, 0.8, 0.8),
+    albedo: Albedo::Constant(vec3(0.8, 0.8, 0.8)),
     details: MaterialDetails::Lambertian,
     emittance: 0.0
 };
 
 const WHITE_BULB_MAT: Material = Material {
-    albedo: Vector3::new(3.0, 3.0, 3.0),
+    albedo: Albedo::Constant(vec3(3.0, 3.0, 3.0)),
     details: MaterialDetails::Lambertian,
     emittance: 1.0
 };
 
 const DIELECTRIC_MAT: Material = Material {
-    albedo: Vector3::new(0.0, 1.0, 0.4),
+    albedo: Albedo::Constant(vec3(0.0, 1.0, 0.4)),
     details: MaterialDetails::Dielectric {
         ref_idx: 1.5,
         roughness: 0.0
@@ -71,14 +71,26 @@ const DIELECTRIC_MAT: Material = Material {
     emittance: 0.0
 };
 
-const RED_MAT: Material = Material {
-    albedo: Vector3::new(1.0, 0.25, 0.25),
+const RED_MIRROR_MAT: Material = Material {
+    albedo: Albedo::Constant(vec3(1.0, 0.0, 0.0)),
     details: MaterialDetails::Metallic {roughness: 0.0},
     emittance: 0.0
 };
 
+const CHECKER_MAT_10: Material = Material {
+    albedo: Albedo::Checker(10.0),
+    details: MaterialDetails::Lambertian,
+    emittance: 0.0
+};
+
+const CHECKER_MAT_2: Material = Material {
+    albedo: Albedo::Checker(2.0),
+    details: MaterialDetails::Lambertian,
+    emittance: 0.0
+};
+
 const ORANGE_MAT: Material = Material {
-    albedo: Vector3::new(1.0, 0.4, 0.0),
+    albedo: Albedo::Constant(vec3(1.0, 0.4, 0.0)),
     details: MaterialDetails::Lambertian,
     emittance: 0.9
 };
@@ -111,7 +123,7 @@ const WORLD: World =
         Shape::Sphere{
             center: Vector3::new(0.0, 0.0, 1.0),
             radius: 0.5,
-            material: RED_MAT
+            material: CHECKER_MAT_10
         },
         Shape::Sphere{
             center: Vector3::new(0.25, -0.4, 0.65),
@@ -122,7 +134,7 @@ const WORLD: World =
             center: Vector3::new(-0.25, -0.4, 0.35),
             sizes: vec3(0.2, 0.2, 0.2),
             rotation: Quaternion::new(0.5, 0.0, 1.0, 0.0),
-            material: BLUE_MAT
+            material: CHECKER_MAT_2
         },
         Shape::Sphere{
             center: Vector3::new(0.15, -0.45, 0.55),
@@ -177,9 +189,11 @@ fn sample_color<'a>(ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, dept
         return Vector3::new(0.0, 0.0, 0.0);
     }
     let sky_clr = sky_color(&ray);
-    if let Some(HitInfo{material, t, ..}) = nearest_hit {
+    if let Some(HitInfo{material, t, uv, ..}) = nearest_hit {
         if let Some((clr, ray_reflect)) = material.scatter(&ray, rng, &nearest_hit.unwrap()) {
-            let c = mul(sample_color(&ray_reflect, world, rng, depth-1), clr).lerp(material.albedo, material.emittance);
+            let uv = uv.unwrap_or(vec2(0.0, 0.0));
+            let albedo = material.albedo.get_color(uv);
+            let c = mul(sample_color(&ray_reflect, world, rng, depth-1), clr).lerp(albedo, material.emittance);
             if t > MAX_T {
                 sky_clr
             } else {
@@ -260,10 +274,11 @@ fn render_scene(times: u64) {
 
 fn main() {
     let mut args = env::args();
-    if args.len() < 2 {
-        eprintln!("Usage: rust-tracer N > some.ppm");
-        return;
-    }
-    let t: u64 = args.nth(1).unwrap().parse().unwrap();
+    // if args.len() < 2 {
+    //     eprintln!("Usage: rust-tracer N > some.ppm");
+    //     return;
+    // }
+    // let t: u64 = args.nth(1).unwrap().parse().unwrap();
+    let t = 130;
     render_scene(t);
 }

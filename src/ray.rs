@@ -11,11 +11,11 @@ pub struct Ray {
 }
 
 #[derive(Clone, Copy)]
-pub struct HitInfo {
+pub struct HitInfo<'a> {
     pub t: f32,
     pub p: Vector3<f32>,
     pub n: Vector3<f32>,
-    pub material: Material,
+    pub material: Material<'a>,
     pub uv: Option<Vector2<f32>>
 }
 
@@ -27,7 +27,7 @@ impl Ray {
     pub fn get_point_at(&self, t: f32) -> Vector3<f32> {
         self.origin + self.direction * t
     }
-    pub fn hit_test<T: HitTestable>(&self, hit_testable: &T) -> Option<HitInfo> {
+    pub fn hit_test<'a, T: HitTestable>(&self, hit_testable: &'a T) -> Option<HitInfo<'a>> {
         hit_testable.hit_test(self)
     }
 }

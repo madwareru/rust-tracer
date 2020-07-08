@@ -13,17 +13,17 @@ use{
 };
 
 #[derive(Copy, Clone)]
-pub enum Shape {
+pub enum Shape<'a> {
     Sphere {
         center: Vector3<f32>,
         radius: f32,
-        material: Material
+        material: Material<'a>
     },
     Disk {
         center: Vector3<f32>,
         normal: Vector3<f32>,
         radius: f32,
-        material: Material
+        material: Material<'a>
     },
     Romboid {
         center: Vector3<f32>,
@@ -31,22 +31,22 @@ pub enum Shape {
         right: Vector3<f32>,
         w: f32,
         h: f32,
-        material: Material
+        material: Material<'a>
     },
     Cube {
         center: Vector3<f32>,
         sizes: Vector3<f32>,
         rotation: Quaternion<f32>,
-        material: Material
+        material: Material<'a>
     }
 }
 
-fn test_ray_plane_intersection(
+fn test_ray_plane_intersection<'a>(
     center: &Vector3<f32>,
     normal: &Vector3<f32>,
     ray: &Ray,
-    material: &Material
-) -> Option<HitInfo>
+    material: &Material<'a>
+) -> Option<HitInfo<'a>>
 {
     let ray_normal_proj = normal.dot(ray.direction);
     if ray_normal_proj >= 0.0 {
@@ -67,7 +67,7 @@ fn test_ray_plane_intersection(
     }
 }
 
-impl HitTestable for Shape {
+impl HitTestable for Shape<'_> {
     fn hit_test(&self, ray: &Ray) -> Option<HitInfo> {
         match self {
             Shape::Sphere { center, radius, material } => {

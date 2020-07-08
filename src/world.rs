@@ -6,10 +6,10 @@ use{
 };
 
 pub struct World<'a> {
-    pub shapes: &'a[Shape]
+    pub shapes: &'a[Shape<'a>]
 }
 
-impl<'a> HitTestable for World<'a> {
+impl HitTestable for World<'_> {
     fn hit_test(&self, ray: &Ray) -> Option<HitInfo> {
         let mut nearest_hit: Option<HitInfo> = None;
         for shape in self.shapes {
