@@ -1,12 +1,9 @@
 use{
     cgmath::{
-        Vector2,
         Vector3,
         InnerSpace,
         Quaternion,
-        Rotation,
-        vec2,
-        vec3
+        vec2
     },
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
@@ -123,7 +120,7 @@ impl HitTestable for Shape<'_> {
             Shape::Cube { center, sizes, material, rotation } => {
                 let center = *center;
                 let mut hit_info_maybe = None;
-                let mut half_sizes = sizes / 2.0;
+                let half_sizes = sizes / 2.0;
 
                 let i = (rotation * Vector3::unit_x()).normalize();
                 let j = (rotation * Vector3::unit_y()).normalize();
