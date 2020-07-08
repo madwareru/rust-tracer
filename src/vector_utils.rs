@@ -1,6 +1,6 @@
 use {
     cgmath::{Vector3, vec3},
-    rand:: {
+    rand::{
         prelude::ThreadRng,
         distributions::Uniform,
         distributions::Distribution

@@ -10,6 +10,7 @@ mod material;
 mod camera;
 mod vector_utils;
 mod scene;
+mod image_loader;
 
 use {
     cgmath::{Vector3, Quaternion, vec3},
@@ -18,14 +19,17 @@ use {
     shape::*,
     world::*,
     material::*,
+    image_loader::*,
     scene::*
 };
+use crate::image_loader::ImgData;
 
 const NUM_SAMPLES: u16 = 512;
-const FOCUS_DISTANCE: f32 = 1.9;
-const APERTURE: f32 = 0.05;
+const FOCUS_DISTANCE: f32 = 1.6;
+const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
 
+const MOON_MAP_BYTES: &[u8] = include_bytes!("moonmap.png");
 const EARTH_MAP_BYTES: &[u8] = include_bytes!("earthmap.png");
 
 const LIGHT_GRAY_MAT: Material = Material {
@@ -73,12 +77,6 @@ const RED_MIRROR_MAT: Material = Material {
     emittance: 0.0
 };
 
-const CHECKER_MAT_10: Material = Material {
-    albedo: Albedo::Checker(31.4),
-    details: MaterialDetails::Lambertian,
-    emittance: 0.0
-};
-
 const CHECKER_MAT_2: Material = Material {
     albedo: Albedo::Checker(2.0),
     details: MaterialDetails::Lambertian,
@@ -98,33 +96,17 @@ fn main() {
         return;
     }
     let t: u64 = args.nth(1).unwrap().parse().unwrap();
-    let mut decoder = Decoder::new(EARTH_MAP_BYTES);
-    let (info, mut reader) = decoder.read_info().unwrap();
-    let (w, h) = (info.width as usize, info.height as usize);
-    let mut buf = vec![0; info.buffer_size()];
-    reader.next_frame(&mut buf).unwrap();
 
     let quat_identity = Quaternion::new(0.0, 0.0, 1.0, 0.0);
 
-    let bytes_per_pixel = match reader.output_color_type()
-    {
-        (ColorType::RGBA, _) => 4,
-        (ColorType::RGB, _) => 3,
-        _ => panic!("unsupported color type")
-    };
-    let mut vec = vec![Vector3::new(0.0, 0.0, 0.0); w*h];
-    let mut offset = 0;
-    for i in 0..w*h {
-        vec[i] = vec3(
-            buf[offset] as f32 / 255.0,
-            buf[offset + 1] as f32 / 255.0,
-            buf[offset + 2] as f32 / 255.0
-        );
-        offset += bytes_per_pixel;
-    }
+    let ImgData{
+        width: moon_map_width,
+        height: moon_map_height,
+        colors: moon_map_colors
+    } = load_png(MOON_MAP_BYTES);
 
-    let earth_map_mat = Material {
-        albedo: Albedo::Texture(w, h, &vec),
+    let moon_map_mat = Material {
+        albedo: Albedo::Texture(moon_map_width, moon_map_height, &moon_map_colors),
         details: MaterialDetails::Lambertian,
         emittance: 0.0
     };
@@ -163,7 +145,7 @@ fn main() {
                 center: Vector3::new(0.0, 0.0, 1.0),
                 radius: 0.5,
                 rotation: quat_identity,
-                material: earth_map_mat
+                material: moon_map_mat
             },
             Shape::Sphere{
                 center: Vector3::new(0.25, -0.4, 0.65),
@@ -203,5 +185,5 @@ fn main() {
             }
         ]}
     };
-    scene.render_as_ppm(t);
+    scene.render_as_ppm(t, 640, 400);
 }

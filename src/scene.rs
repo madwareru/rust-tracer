@@ -23,8 +23,8 @@ pub struct Scene<'a> {
 }
 
 impl Scene<'_> {
-    pub fn sample_color<'a>(&self, ray: &'a Ray, world: &'a World, rng: &'a mut ThreadRng, depth: u8) -> Vector3<f32> {
-        let nearest_hit = ray.hit_test(world);
+    pub fn sample_color(&self, ray: &Ray, rng: &mut ThreadRng, depth: u8) -> Vector3<f32> {
+        let nearest_hit = ray.hit_test(&self.world);
         if depth == 0 {
             return Vector3::new(0.0, 0.0, 0.0);
         }
@@ -33,7 +33,7 @@ impl Scene<'_> {
             if let Some((clr, ray_reflect)) = material.scatter(&ray, rng, &nearest_hit.unwrap()) {
                 let uv = uv.unwrap_or(vec2(0.0, 0.0));
                 let albedo = material.albedo.get_color(uv);
-                let c = mul(self.sample_color(&ray_reflect, world, rng, depth-1), clr).lerp(albedo, material.emittance);
+                let c = mul(self.sample_color(&ray_reflect, rng, depth-1), clr).lerp(albedo, material.emittance);
                 if t > self.max_t {
                     sky_clr
                 } else {
@@ -77,11 +77,11 @@ impl Scene<'_> {
             direction: (camera.origin + dir - origin_with_offset).normalize()
         };
 
-        self.sample_color(&ray, &self.world, &mut rng, 10)
+        self.sample_color(&ray, &mut rng, 10)
     }
 
-    pub fn render_as_ppm(&self, times: u64) {
-        let mut pic = Picture::new(640, 400);
+    pub fn render_as_ppm(&self, times: u64, w: usize, h: usize) {
+        let mut pic = Picture::new(w, h);
         let t = (times + 100) as f32 / 50.0;
         pic.mutate(|colors, w, h| {
             let aspect = w as f32 / h as f32;
