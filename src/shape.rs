@@ -1,5 +1,6 @@
 use{
     cgmath::{
+        Vector2,
         Vector3,
         InnerSpace,
         Quaternion,
@@ -8,6 +9,20 @@ use{
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
 };
+
+#[derive(Copy, Clone)]
+pub struct VertexDescription {
+    pub position: Vector3<f32>,
+    pub normal: Vector3<f32>,
+    pub uv: Vector2<f32>
+}
+
+#[derive(Copy, Clone)]
+pub struct MeshDescription<'a> {
+    pub vertices: &'a [VertexDescription],
+    pub indices: &'a [usize],
+    pub triangle_count: usize
+}
 
 #[derive(Copy, Clone)]
 pub enum Shape<'a> {
@@ -28,6 +43,12 @@ pub enum Shape<'a> {
         sizes: Vector3<f32>,
         rotation: Quaternion<f32>,
         material: Material<'a>
+    },
+    TriangleMesh {
+        center: Vector3<f32>,
+        mesh: MeshDescription<'a>,
+        rotation: Quaternion<f32>,
+        material: Material<'a>
     }
 }
 
@@ -42,7 +63,7 @@ fn test_ray_plane_intersection<'a>(
     if ray_normal_proj >= 0.0 {
         None // when ray is completely parallel to a plane, there is no intersection
              // there is no intersection in a situation when projection has positive
-             // sign (we are watching to the "back" of a disk)
+             // sign (we are watching to the "back" of a plane)
     } else {
         let oc = ray.origin - center;
         let t = -normal.dot(oc) / ray_normal_proj;
@@ -133,6 +154,11 @@ impl HitTestable for Shape<'_> {
                     match test_ray_plane_intersection(&center, &normal, &ray, &material) {
                         None => {},
                         Some(hit_info) => {
+                            let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
+                            if hit_info.t > old_t {
+                                continue;
+                            }
+
                             let diff = hit_info.p - center;
                             let x_project = diff.dot(i.clone());
                             let y_project = diff.dot(j.clone());
@@ -156,17 +182,88 @@ impl HitTestable for Shape<'_> {
                                 y_project.abs() > ys ||
                                 z_project.abs() > zs
                             ) {
-                                match hit_info_maybe {
-                                    None => hit_info_maybe = Some(hit_info),
-                                    Some(old_hit_info) if old_hit_info.t > hit_info.t =>{
-                                        hit_info_maybe = Some(hit_info)
-                                    },
-                                    _ => {}
-                                }
+                                hit_info_maybe = Some(hit_info)
                             }
                         },
                     }
-                };
+                }
+                hit_info_maybe
+            }
+            Shape::TriangleMesh { center, mesh, rotation, material } => {
+                let mut offset = 0;
+                let mut hit_info_maybe = None;
+
+                for _ in 0..mesh.triangle_count {
+                    if offset + 3 > mesh.indices.len() {
+                        break;
+                    }
+
+                    let next_vertices = mesh
+                        .indices[offset..offset+3]
+                        .iter()
+                        .map(|&ix| VertexDescription{
+                            position: rotation * mesh.vertices[ix].position + center,
+                            normal: rotation * mesh.vertices[ix].normal,
+                            ..mesh.vertices[ix]
+                        })
+                        .collect::<Vec<_>>();
+
+                    let v0 = next_vertices[1].position - next_vertices[0].position;
+                    let v1 = next_vertices[2].position - next_vertices[0].position;
+                    let n = v0.cross(v1);
+                    let whole_area = n.magnitude();
+                    let n = n.normalize();
+                    let neg_n = -n;
+
+                    if let Some(hit_info) = test_ray_plane_intersection(
+                        &(next_vertices[0].position),
+                        &n,
+                        &ray,
+                        &material
+                    ) {
+                        let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
+                        if hit_info.t <= old_t {
+                            let p0p = next_vertices[0].position - hit_info.p;
+                            let p1p = next_vertices[1].position - hit_info.p;
+                            let p2p = next_vertices[2].position - hit_info.p;
+
+                            let p0_area_cross = p1p.cross(p2p);
+                            let p1_area_cross = p2p.cross(p0p);
+                            let p2_area_cross = p0p.cross(p1p);
+
+                            if  p0_area_cross.dot(hit_info.n) > 0.0 &&
+                                p1_area_cross.dot(hit_info.n) > 0.0 &&
+                                p2_area_cross.dot(hit_info.n) > 0.0
+                            {
+                                let (u, v, w) = (
+                                    p0_area_cross.magnitude() / whole_area,
+                                    p1_area_cross.magnitude() / whole_area,
+                                    p2_area_cross.magnitude() / whole_area
+                                );
+
+                                let normal =
+                                    next_vertices[0].normal * u +
+                                    next_vertices[1].normal * v +
+                                    next_vertices[2].normal * w;
+
+                                let uv =
+                                    next_vertices[0].uv * u +
+                                    next_vertices[1].uv * v +
+                                    next_vertices[2].uv * w;
+
+                                hit_info_maybe = Some(
+                                    HitInfo {
+                                        n: normal,
+                                        uv: Some(uv),
+                                        ..hit_info
+                                    }
+                                );
+                            }
+                        }
+                    }
+                    offset += 3;
+                }
+
                 hit_info_maybe
             }
         }

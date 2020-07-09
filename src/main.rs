@@ -13,7 +13,17 @@ mod scene;
 mod image_loader;
 
 use {
-    cgmath::{Vector3, Quaternion, Euler, vec3, Angle},
+    cgmath::{
+        Vector3,
+        Quaternion,
+        Euler,
+        Rad,
+        vec2,
+        vec3,
+        Angle,
+        VectorSpace,
+        InnerSpace
+    },
     png::{Decoder, ColorType},
     std::env,
     shape::*,
@@ -22,10 +32,8 @@ use {
     image_loader::*,
     scene::*
 };
-use crate::image_loader::ImgData;
-use cgmath::Rad;
 
-const NUM_SAMPLES: u16 = 512;
+const NUM_SAMPLES: u16 = 128;
 const FOCUS_DISTANCE: f32 = 1.6;
 const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
@@ -125,6 +133,24 @@ fn main() {
         emittance: 0.0
     };
 
+    fn get_normal(vecs: &[Vector3<f32>]) -> Vector3<f32> {
+        (vecs[1] - vecs[0]).cross(vecs[2] - vecs[0]).normalize()
+    }
+
+    let piramid_pts = &[
+        vec3(-0.2, -0.2, -0.2),
+        vec3( 0.2, -0.2, -0.2),
+        vec3( 0.0, -0.2,  0.2),
+        vec3( 0.0,  0.2,  0.0)
+    ];
+
+    let normals = &[
+        get_normal(&[piramid_pts[0], piramid_pts[1], piramid_pts[2]]),
+        get_normal(&[piramid_pts[2], piramid_pts[3], piramid_pts[0]]),
+        get_normal(&[piramid_pts[1], piramid_pts[3], piramid_pts[2]]),
+        get_normal(&[piramid_pts[0], piramid_pts[3], piramid_pts[1]]),
+    ];
+
     let scene = Scene {
         focus_distance: FOCUS_DISTANCE,
         aperture: APERTURE,
@@ -132,72 +158,148 @@ fn main() {
         max_t: MAX_T,
         world: World{ shapes: &[
             Shape::Disk{
-                center: Vector3::new(-0.85, 0.49, 1.05),
+                center: vec3(-0.85, 0.49, 1.05),
                 radius: 0.125,
                 rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Disk{
-                center: Vector3::new(0.85, 0.49, 1.05),
+                center: vec3(0.85, 0.49, 1.05),
                 radius: 0.125 / 2.0,
                 rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Disk{
-                center: Vector3::new(0.0, 0.49, -1.05),
+                center: vec3(0.0, 0.49, -1.05),
                 radius: 0.125 / 4.0,
                 rotation: quat_flip180_z,
                 material: WHITE_BULB_MAT
             },
             Shape::Sphere{
-                center: Vector3::new(-0.6, -0.3, 0.7),
+                center: vec3(-0.6, -0.3, 0.7),
                 radius: 0.15,
                 rotation: quat_identity,
                 material: DIELECTRIC_MAT
             },
             Shape::Sphere{
-                center: Vector3::new(0.0, 0.0, 1.0),
+                center: vec3(0.0, 0.0, 1.0),
                 radius: 0.5,
                 rotation: quat_identity,
                 material: moon_map_mat
             },
             Shape::Sphere{
-                center: Vector3::new(0.25, -0.4, 0.65),
+                center: vec3(0.25, -0.4, 0.65),
                 radius: 0.1,
                 rotation: quat_identity,
                 material: ORANGE_MAT
             },
             Shape::Cube {
-                center: Vector3::new(-0.25, -0.4, 0.35),
+                center: vec3(-0.25, -0.4, 0.35),
                 sizes: vec3(0.2, 0.2, 0.2),
                 rotation: Quaternion::new(0.5, 0.0, 1.0, 0.0),
                 material: CHECKER_MAT_2
             },
             Shape::Sphere{
-                center: Vector3::new(0.15, -0.45, 0.55),
+                center: vec3(0.15, -0.45, 0.55),
                 radius: 0.05,
                 rotation: quat_identity,
                 material: DARK_GRAY_MAT
             },
             Shape::Sphere{
-                center: Vector3::new(-0.75, -0.45, 0.75),
+                center: vec3(-0.75, -0.45, 0.75),
                 radius: 0.05,
                 rotation: quat_identity,
                 material: DARK_GRAY_MAT
             },
             Shape::Disk{
-                center: Vector3::new(0.0, -0.5, 1.0),
+                center: vec3(0.0, -0.5, 1.0),
                 radius: 2.0,
                 rotation: quat_identity,
                 material: earth_map_mat
             },
             Shape::Sphere{
-                center: Vector3::new(0.0, 100.0, 1.0),
+                center: vec3(0.0, 100.0, 1.0),
                 radius: 99.5,
                 rotation: quat_identity,
                 material: LIGHT_GRAY_MAT
+            },
+            Shape::TriangleMesh {
+                center: vec3(0.45, -0.3, 0.65),
+                mesh: MeshDescription {
+                    vertices: &[
+                        VertexDescription {
+                            position: piramid_pts[0],
+                            normal: normals[0],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[1],
+                            normal: normals[0],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[2],
+                            normal: normals[0],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[2],
+                            normal: normals[1],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[3],
+                            normal: normals[1],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[0],
+                            normal: normals[1],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[1],
+                            normal: normals[2],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[3],
+                            normal: normals[2],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[2],
+                            normal: normals[2],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[0],
+                            normal: normals[3],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[3],
+                            normal: normals[3],
+                            uv: vec2(0.0, 0.0)
+                        },
+                        VertexDescription {
+                            position: piramid_pts[1],
+                            normal: normals[3],
+                            uv: vec2(0.0, 0.0)
+                        }
+                    ],
+                    indices: &[
+                        0,  1,  2,
+                        3,  4,  5,
+                        6,  7,  8,
+                        9, 10, 11
+                    ],
+                    triangle_count: 4
+                },
+                rotation: quat_identity,
+                material: LIGHT_GRAY_MAT_LAMBERT
             }
         ]}
     };
-    scene.render_as_ppm(t, 640, 400);
+    scene.render_as_ppm(t, 320, 200);
 }
