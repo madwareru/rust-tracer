@@ -11,6 +11,7 @@ mod camera;
 mod vector_utils;
 mod scene;
 mod image_loader;
+mod bunny;
 
 use {
     cgmath::{
@@ -33,7 +34,7 @@ use {
     scene::*
 };
 
-const NUM_SAMPLES: u16 = 128;
+const NUM_SAMPLES: u16 = 200;
 const FOCUS_DISTANCE: f32 = 1.6;
 const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
@@ -151,6 +152,29 @@ fn main() {
         get_normal(&[piramid_pts[0], piramid_pts[3], piramid_pts[1]]),
     ];
 
+    let bunny_vertices = bunny::VERTICES_0
+        .iter()
+        .map(|((vx, vy, vz), (nx, ny, nz), (u, v))| VertexDescription {
+            position: vec3(*vx, *vy, *vz),
+            normal: vec3(*nx, *ny, *nz),
+            uv: vec2(*u, *v)
+        })
+        .collect::<Vec<_>>();
+
+    let bunny_mesh = MeshDescription {
+        vertices: &bunny_vertices,
+        indices: bunny::INDICES_0,
+        triangle_count: bunny::COUNT_0
+    };
+
+
+    // let (bunny_verts, bunny_indices) = stanford_bunny_raw::load_stanford_bunny(10.0);
+    // let bunny_mesh = MeshDescription{
+    //     vertices: &bunny_verts,
+    //     indices: &bunny_indices,
+    //     triangle_count: bunny_indices.len() / 3
+    // };
+
     let scene = Scene {
         focus_distance: FOCUS_DISTANCE,
         aperture: APERTURE,
@@ -224,82 +248,12 @@ fn main() {
                 material: LIGHT_GRAY_MAT
             },
             Shape::TriangleMesh {
-                center: vec3(0.45, -0.3, 0.65),
-                mesh: MeshDescription {
-                    vertices: &[
-                        VertexDescription {
-                            position: piramid_pts[0],
-                            normal: normals[0],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[1],
-                            normal: normals[0],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[2],
-                            normal: normals[0],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[2],
-                            normal: normals[1],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[3],
-                            normal: normals[1],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[0],
-                            normal: normals[1],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[1],
-                            normal: normals[2],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[3],
-                            normal: normals[2],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[2],
-                            normal: normals[2],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[0],
-                            normal: normals[3],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[3],
-                            normal: normals[3],
-                            uv: vec2(0.0, 0.0)
-                        },
-                        VertexDescription {
-                            position: piramid_pts[1],
-                            normal: normals[3],
-                            uv: vec2(0.0, 0.0)
-                        }
-                    ],
-                    indices: &[
-                        0,  1,  2,
-                        3,  4,  5,
-                        6,  7,  8,
-                        9, 10, 11
-                    ],
-                    triangle_count: 4
-                },
+                center: vec3(0.55, -0.5, 0.65),
+                mesh: bunny_mesh,
                 rotation: quat_identity,
                 material: LIGHT_GRAY_MAT_LAMBERT
             }
         ]}
     };
-    scene.render_as_ppm(t, 320, 200);
+    scene.render_as_ppm(t, 640, 400);
 }
