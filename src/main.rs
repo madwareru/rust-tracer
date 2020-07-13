@@ -12,6 +12,7 @@ mod vector_utils;
 mod scene;
 mod image_loader;
 mod bunny;
+mod aabb;
 
 use {
     cgmath::{
@@ -34,7 +35,7 @@ use {
     scene::*
 };
 
-const NUM_SAMPLES: u16 = 200;
+const NUM_SAMPLES: u16 = 128;
 const FOCUS_DISTANCE: f32 = 1.6;
 const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
@@ -167,93 +168,87 @@ fn main() {
         triangle_count: bunny::COUNT_0
     };
 
-
-    // let (bunny_verts, bunny_indices) = stanford_bunny_raw::load_stanford_bunny(10.0);
-    // let bunny_mesh = MeshDescription{
-    //     vertices: &bunny_verts,
-    //     indices: &bunny_indices,
-    //     triangle_count: bunny_indices.len() / 3
-    // };
+    let shapes = &[
+        Shape::Disk{
+            center: vec3(-0.85, 0.49, 1.05),
+            radius: 0.125,
+            rotation: quat_flip180_z,
+            material: WHITE_BULB_MAT
+        },
+        Shape::Disk{
+            center: vec3(0.85, 0.49, 1.05),
+            radius: 0.125 / 2.0,
+            rotation: quat_flip180_z,
+            material: WHITE_BULB_MAT
+        },
+        Shape::Disk{
+            center: vec3(0.0, 0.49, -1.05),
+            radius: 0.125 / 4.0,
+            rotation: quat_flip180_z,
+            material: WHITE_BULB_MAT
+        },
+        Shape::Sphere{
+            center: vec3(-0.6, -0.3, 0.7),
+            radius: 0.15,
+            rotation: quat_identity,
+            material: DIELECTRIC_MAT
+        },
+        Shape::Sphere{
+            center: vec3(0.0, 0.0, 1.0),
+            radius: 0.5,
+            rotation: quat_identity,
+            material: moon_map_mat
+        },
+        Shape::Sphere{
+            center: vec3(0.25, -0.4, 0.65),
+            radius: 0.1,
+            rotation: quat_identity,
+            material: ORANGE_MAT
+        },
+        Shape::Cube {
+            center: vec3(-0.25, -0.4, 0.35),
+            sizes: vec3(0.2, 0.2, 0.2),
+            rotation: Quaternion::new(0.5, 0.0, 1.0, 0.0),
+            material: CHECKER_MAT_2
+        },
+        Shape::Sphere{
+            center: vec3(0.15, -0.45, 0.55),
+            radius: 0.05,
+            rotation: quat_identity,
+            material: DARK_GRAY_MAT
+        },
+        Shape::Sphere{
+            center: vec3(-0.75, -0.45, 0.75),
+            radius: 0.05,
+            rotation: quat_identity,
+            material: DARK_GRAY_MAT
+        },
+        Shape::Disk{
+            center: vec3(0.0, -0.5, 1.0),
+            radius: 2.0,
+            rotation: quat_identity,
+            material: earth_map_mat
+        },
+        Shape::Sphere{
+            center: vec3(0.0, 100.0, 1.0),
+            radius: 99.5,
+            rotation: quat_identity,
+            material: LIGHT_GRAY_MAT
+        },
+        Shape::TriangleMesh {
+            center: vec3(0.55, -0.5, 0.65),
+            mesh: bunny_mesh,
+            rotation: quat_identity,
+            material: LIGHT_GRAY_MAT_LAMBERT
+        }
+    ];
 
     let scene = Scene {
         focus_distance: FOCUS_DISTANCE,
         aperture: APERTURE,
         num_samples: NUM_SAMPLES,
         max_t: MAX_T,
-        world: World{ shapes: &[
-            Shape::Disk{
-                center: vec3(-0.85, 0.49, 1.05),
-                radius: 0.125,
-                rotation: quat_flip180_z,
-                material: WHITE_BULB_MAT
-            },
-            Shape::Disk{
-                center: vec3(0.85, 0.49, 1.05),
-                radius: 0.125 / 2.0,
-                rotation: quat_flip180_z,
-                material: WHITE_BULB_MAT
-            },
-            Shape::Disk{
-                center: vec3(0.0, 0.49, -1.05),
-                radius: 0.125 / 4.0,
-                rotation: quat_flip180_z,
-                material: WHITE_BULB_MAT
-            },
-            Shape::Sphere{
-                center: vec3(-0.6, -0.3, 0.7),
-                radius: 0.15,
-                rotation: quat_identity,
-                material: DIELECTRIC_MAT
-            },
-            Shape::Sphere{
-                center: vec3(0.0, 0.0, 1.0),
-                radius: 0.5,
-                rotation: quat_identity,
-                material: moon_map_mat
-            },
-            Shape::Sphere{
-                center: vec3(0.25, -0.4, 0.65),
-                radius: 0.1,
-                rotation: quat_identity,
-                material: ORANGE_MAT
-            },
-            Shape::Cube {
-                center: vec3(-0.25, -0.4, 0.35),
-                sizes: vec3(0.2, 0.2, 0.2),
-                rotation: Quaternion::new(0.5, 0.0, 1.0, 0.0),
-                material: CHECKER_MAT_2
-            },
-            Shape::Sphere{
-                center: vec3(0.15, -0.45, 0.55),
-                radius: 0.05,
-                rotation: quat_identity,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Sphere{
-                center: vec3(-0.75, -0.45, 0.75),
-                radius: 0.05,
-                rotation: quat_identity,
-                material: DARK_GRAY_MAT
-            },
-            Shape::Disk{
-                center: vec3(0.0, -0.5, 1.0),
-                radius: 2.0,
-                rotation: quat_identity,
-                material: earth_map_mat
-            },
-            Shape::Sphere{
-                center: vec3(0.0, 100.0, 1.0),
-                radius: 99.5,
-                rotation: quat_identity,
-                material: LIGHT_GRAY_MAT
-            },
-            Shape::TriangleMesh {
-                center: vec3(0.55, -0.5, 0.65),
-                mesh: bunny_mesh,
-                rotation: quat_identity,
-                material: LIGHT_GRAY_MAT_LAMBERT
-            }
-        ]}
+        world: World::construct(shapes)
     };
-    scene.render_as_ppm(t, 640, 400);
+    scene.render_as_ppm(t, 320, 200);
 }
