@@ -34,8 +34,10 @@ use {
     image_loader::*,
     scene::*
 };
+use crate::aabb::AaBb;
+use png::Compression::Fast;
 
-const NUM_SAMPLES: u16 = 256;
+const NUM_SAMPLES: u16 = 400;
 const FOCUS_DISTANCE: f32 = 1.6;
 const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
@@ -135,24 +137,6 @@ fn main() {
         emittance: 0.0
     };
 
-    fn get_normal(vecs: &[Vector3<f32>]) -> Vector3<f32> {
-        (vecs[1] - vecs[0]).cross(vecs[2] - vecs[0]).normalize()
-    }
-
-    let piramid_pts = &[
-        vec3(-0.2, -0.2, -0.2),
-        vec3( 0.2, -0.2, -0.2),
-        vec3( 0.0, -0.2,  0.2),
-        vec3( 0.0,  0.2,  0.0)
-    ];
-
-    let normals = &[
-        get_normal(&[piramid_pts[0], piramid_pts[1], piramid_pts[2]]),
-        get_normal(&[piramid_pts[2], piramid_pts[3], piramid_pts[0]]),
-        get_normal(&[piramid_pts[1], piramid_pts[3], piramid_pts[2]]),
-        get_normal(&[piramid_pts[0], piramid_pts[3], piramid_pts[1]]),
-    ];
-
     let bunny_vertices = bunny::VERTICES_0
         .iter()
         .map(|((vx, vy, vz), (nx, ny, nz), (u, v))| VertexDescription {
@@ -167,6 +151,16 @@ fn main() {
         indices: bunny::INDICES_0,
         triangle_count: bunny::COUNT_0
     };
+
+    let bunny_shape = Shape::TriangleMesh {
+        center: vec3(0.55, -0.5, 0.65),
+        mesh: bunny_mesh,
+        material: LIGHT_GRAY_MAT_LAMBERT,
+        face_oct_tree: None
+    };
+    let bunny_aabb: Option<AaBb> = bunny_shape.into();
+    let mut bunny_face_oct_tree = FaceOctTree::make(bunny_aabb.unwrap(), 2);
+    let bunny_shape = bunny_shape.extend_with_oct_tree(&mut bunny_face_oct_tree);
 
     let shapes = &[
         Shape::Disk{
@@ -235,11 +229,7 @@ fn main() {
             rotation: quat_identity,
             material: LIGHT_GRAY_MAT
         },
-        Shape::TriangleMesh {
-            center: vec3(0.55, -0.5, 0.65),
-            mesh: bunny_mesh,
-            material: LIGHT_GRAY_MAT_LAMBERT
-        }
+        bunny_shape
     ];
 
     let scene = Scene {
@@ -249,5 +239,5 @@ fn main() {
         max_t: MAX_T,
         world: World::construct(shapes)
     };
-    scene.render_as_ppm(t, 1280, 800);
+    scene.render_as_ppm(t, 640, 400);
 }

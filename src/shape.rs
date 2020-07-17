@@ -9,12 +9,89 @@ use{
     crate::ray::{HitTestable, HitInfo, Ray},
     crate::material::Material
 };
+use crate::aabb::AaBb;
 
 #[derive(Copy, Clone)]
 pub struct VertexDescription {
     pub position: Vector3<f32>,
     pub normal: Vector3<f32>,
     pub uv: Vector2<f32>
+}
+
+pub enum FaceOctTree {
+    Node {
+        aabb: AaBb,
+        children: Vec<FaceOctTree>
+    },
+    Leaf {
+        aabb: AaBb,
+        face_indices: Vec<usize>
+    }
+}
+
+impl FaceOctTree {
+    pub fn fill(&mut self, v0: &Vector3<f32>, v1: &Vector3<f32>, v2: &Vector3<f32>, face_id: usize) {
+        match self {
+            FaceOctTree::Node { aabb, children } => {
+                if !(aabb.is_point_inside(v0) || aabb.is_point_inside(v1) || aabb.is_point_inside(v2)) {
+                    return;
+                }
+                for child in children {
+                    child.fill(v0, v1, v2, face_id)
+                }
+            },
+            FaceOctTree::Leaf { aabb, face_indices } => {
+                if !(aabb.is_point_inside(v0) || aabb.is_point_inside(v1) || aabb.is_point_inside(v2)) {
+                    return;
+                }
+                face_indices.push(face_id)
+            },
+        }
+    }
+    pub fn make(initial_aabb: AaBb, depth_levels: u8) -> Self {
+        if depth_levels == 0 {
+            FaceOctTree::Leaf {
+                aabb: initial_aabb,
+                face_indices: Vec::new()
+            }
+        } else {
+            let [bb0, bb1, bb2, bb3, bb4, bb5, bb6, bb7] = initial_aabb.slice_octal();
+            let next_depth_levels = depth_levels - 1;
+            FaceOctTree::Node {
+                aabb: initial_aabb,
+                children: vec![
+                    FaceOctTree::make(bb0, next_depth_levels),
+                    FaceOctTree::make(bb1, next_depth_levels),
+                    FaceOctTree::make(bb2, next_depth_levels),
+                    FaceOctTree::make(bb3, next_depth_levels),
+                    FaceOctTree::make(bb4, next_depth_levels),
+                    FaceOctTree::make(bb5, next_depth_levels),
+                    FaceOctTree::make(bb6, next_depth_levels),
+                    FaceOctTree::make(bb7, next_depth_levels)
+                ]
+            }
+        }
+    }
+    pub fn hit_test<F: FnMut(usize) -> ()>(&self, ray: &Ray, f: &mut F) {
+        match self {
+            FaceOctTree::Leaf { aabb, face_indices } => {
+                if !aabb.is_hit(ray) {
+                    return;
+                }
+                for id in face_indices {
+                    f(*id);
+                }
+            },
+            FaceOctTree::Node { aabb, children } => {
+                if !aabb.is_hit(ray) {
+                    return;
+                }
+                for child in children {
+                    child.hit_test(ray, f);
+                }
+            },
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -47,7 +124,8 @@ pub enum Shape<'a> {
     TriangleMesh {
         center: Vector3<f32>,
         mesh: MeshDescription<'a>,
-        material: Material<'a>
+        material: Material<'a>,
+        face_oct_tree: Option<&'a FaceOctTree>
     }
 }
 
@@ -105,7 +183,7 @@ impl HitTestable for Shape<'_> {
                         let x_proj = i.dot(n);
                         let y_proj = j.dot(n);
                         let z_proj = k.dot(n);
-                        let uv = vec2(z_proj.atan2(x_proj).to_degrees() / 180.0, (y_proj + 1.0) * 0.5);
+                        let uv = vec2(z_proj.atan2(x_proj).to_degrees() / 360.0 + 0.5, (y_proj + 1.0) * 0.5);
                         Some(HitInfo{ t, p, n, material, uv: Some(uv) })
                     }
                 }
@@ -123,7 +201,7 @@ impl HitTestable for Shape<'_> {
                             None
                         } else {
                             let uv = vec2(
-                                k.dot(pc).atan2(i.dot(pc)).to_degrees() / 180.0,
+                                k.dot(pc).atan2(i.dot(pc)).to_degrees() / 360.0 + 0.5,
                                 r
                             );
                             Some(HitInfo{uv: Some(uv), ..hit_info})
@@ -188,95 +266,202 @@ impl HitTestable for Shape<'_> {
                 }
                 hit_info_maybe
             }
-            Shape::TriangleMesh { center, mesh, material } => {
-                let mut offset = 0;
+            Shape::TriangleMesh { center, mesh, material, face_oct_tree } => {
                 let mut hit_info_maybe = None;
+                if let Some(face_oct_tree) = *face_oct_tree {
+                    face_oct_tree.hit_test(ray, &mut (|face_id| {
+                        let offset = face_id * 3;
+                        if offset + 3 <= mesh.indices.len() {
+                            let(ix0, ix1, ix2) = (
+                                mesh.indices[offset],
+                                mesh.indices[offset+1],
+                                mesh.indices[offset+2]
+                            );
 
-                // let (i, j, k) = (
-                //     (Vector3::unit_x()).normalize(),
-                //     (Vector3::unit_y()).normalize(),
-                //     (Vector3::unit_z()).normalize(),
-                // );
+                            let vertex_0 = VertexDescription{
+                                position: mesh.vertices[ix0].position + center,
+                                ..mesh.vertices[ix0]
+                            };
+                            let vertex_1 = VertexDescription{
+                                position: mesh.vertices[ix1].position + center,
+                                ..mesh.vertices[ix1]
+                            };
+                            let vertex_2 = VertexDescription{
+                                position: mesh.vertices[ix2].position + center,
+                                ..mesh.vertices[ix2]
+                            };
 
-                for _ in 0..mesh.triangle_count {
-                    if offset + 3 > mesh.indices.len() {
-                        break;
-                    }
+                            let v0 = vertex_1.position - vertex_0.position;
+                            let v1 = vertex_2.position - vertex_0.position;
+                            let n = v0.cross(v1);
+                            let whole_area = n.magnitude();
+                            let n = n.normalize();
 
-                    let slice = &mesh.indices[offset..offset+3];
+                            if let Some(hit_info) = test_ray_plane_intersection(
+                                &(vertex_0.position),
+                                &n,
+                                &ray,
+                                &material
+                            ) {
+                                let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
+                                if hit_info.t <= old_t {
+                                    let p0p = vertex_0.position - hit_info.p;
+                                    let p1p = vertex_1.position - hit_info.p;
+                                    let p2p = vertex_2.position - hit_info.p;
 
-                    let (p0, p1, p2) = (
-                        VertexDescription{
-                            position: mesh.vertices[slice[0]].position + center,
-                            ..mesh.vertices[slice[0]]
-                        },
-                        VertexDescription{
-                            position: mesh.vertices[slice[1]].position + center,
-                            ..mesh.vertices[slice[1]]
-                        },
-                        VertexDescription{
-                            position: mesh.vertices[slice[2]].position + center,
-                            ..mesh.vertices[slice[2]]
-                        }
-                    );
+                                    let p0_area_cross = p1p.cross(p2p);
+                                    let p1_area_cross = p2p.cross(p0p);
+                                    let p2_area_cross = p0p.cross(p1p);
 
-                    let v0 = p1.position - p0.position;
-                    let v1 = p2.position - p0.position;
-                    let n = v0.cross(v1);
-                    let whole_area = n.magnitude();
-                    let n = n.normalize();
+                                    if  p0_area_cross.dot(hit_info.n) > 0.0 &&
+                                        p1_area_cross.dot(hit_info.n) > 0.0 &&
+                                        p2_area_cross.dot(hit_info.n) > 0.0
+                                    {
+                                        let (u, v, w) = (
+                                            p0_area_cross.magnitude() / whole_area,
+                                            p1_area_cross.magnitude() / whole_area,
+                                            p2_area_cross.magnitude() / whole_area
+                                        );
 
-                    if let Some(hit_info) = test_ray_plane_intersection(
-                        &(p0.position),
-                        &n,
-                        &ray,
-                        &material
-                    ) {
-                        let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
-                        if hit_info.t <= old_t {
-                            let p0p = p0.position - hit_info.p;
-                            let p1p = p1.position - hit_info.p;
-                            let p2p = p2.position - hit_info.p;
+                                        let normal =
+                                            vertex_0.normal * u +
+                                            vertex_1.normal * v +
+                                            vertex_2.normal * w;
 
-                            let p0_area_cross = p1p.cross(p2p);
-                            let p1_area_cross = p2p.cross(p0p);
-                            let p2_area_cross = p0p.cross(p1p);
+                                        let uv =
+                                            vertex_0.uv * u +
+                                            vertex_1.uv * v +
+                                            vertex_2.uv * w;
 
-                            if  p0_area_cross.dot(hit_info.n) > 0.0 &&
-                                p1_area_cross.dot(hit_info.n) > 0.0 &&
-                                p2_area_cross.dot(hit_info.n) > 0.0
-                            {
-                                let (u, v, w) = (
-                                    p0_area_cross.magnitude() / whole_area,
-                                    p1_area_cross.magnitude() / whole_area,
-                                    p2_area_cross.magnitude() / whole_area
-                                );
-
-                                let normal =
-                                    p0.normal * u +
-                                    p1.normal * v +
-                                    p2.normal * w;
-
-                                let uv =
-                                    p0.uv * u +
-                                    p1.uv * v +
-                                    p2.uv * w;
-
-                                hit_info_maybe = Some(
-                                    HitInfo {
-                                        n: normal,
-                                        uv: Some(uv),
-                                        ..hit_info
+                                        hit_info_maybe = Some(
+                                            HitInfo {
+                                                n: normal,
+                                                uv: Some(uv),
+                                                ..hit_info
+                                            }
+                                        );
                                     }
-                                );
+                                }
                             }
                         }
-                    }
-                    offset += 3;
+                    }));
                 }
+                else {
+                    let mut offset = 0;
+                    for _ in 0..mesh.triangle_count {
+                        if offset + 3 > mesh.indices.len() {
+                            break;
+                        }
 
+                        let(ix0, ix1, ix2) = (
+                            mesh.indices[offset],
+                            mesh.indices[offset+1],
+                            mesh.indices[offset+2]
+                        );
+
+                        let vertex_0 = VertexDescription{
+                            position: mesh.vertices[ix0].position + center,
+                            ..mesh.vertices[ix0]
+                        };
+                        let vertex_1 = VertexDescription{
+                            position: mesh.vertices[ix1].position + center,
+                            ..mesh.vertices[ix1]
+                        };
+                        let vertex_2 = VertexDescription{
+                            position: mesh.vertices[ix2].position + center,
+                            ..mesh.vertices[ix2]
+                        };
+
+                        let v0 = vertex_1.position - vertex_0.position;
+                        let v1 = vertex_2.position - vertex_0.position;
+                        let n = v0.cross(v1);
+                        let whole_area = n.magnitude();
+                        let n = n.normalize();
+
+                        if let Some(hit_info) = test_ray_plane_intersection(
+                            &(vertex_0.position),
+                            &n,
+                            &ray,
+                            &material
+                        ) {
+                            let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
+                            if hit_info.t <= old_t {
+                                let p0p = vertex_0.position - hit_info.p;
+                                let p1p = vertex_1.position - hit_info.p;
+                                let p2p = vertex_2.position - hit_info.p;
+
+                                let p0_area_cross = p1p.cross(p2p);
+                                let p1_area_cross = p2p.cross(p0p);
+                                let p2_area_cross = p0p.cross(p1p);
+
+                                if  p0_area_cross.dot(hit_info.n) > 0.0 &&
+                                    p1_area_cross.dot(hit_info.n) > 0.0 &&
+                                    p2_area_cross.dot(hit_info.n) > 0.0
+                                {
+                                    let (u, v, w) = (
+                                        p0_area_cross.magnitude() / whole_area,
+                                        p1_area_cross.magnitude() / whole_area,
+                                        p2_area_cross.magnitude() / whole_area
+                                    );
+
+                                    let normal =
+                                        vertex_0.normal * u +
+                                        vertex_1.normal * v +
+                                        vertex_2.normal * w;
+
+                                    let uv =
+                                        vertex_0.uv * u +
+                                        vertex_1.uv * v +
+                                        vertex_2.uv * w;
+
+                                    hit_info_maybe = Some(
+                                        HitInfo {
+                                            n: normal,
+                                            uv: Some(uv),
+                                            ..hit_info
+                                        }
+                                    );
+                                }
+                            }
+                        }
+                        offset += 3;
+                    }
+                }
                 hit_info_maybe
             }
+        }
+    }
+}
+
+impl<'a> Shape<'a> {
+    pub fn extend_with_oct_tree(&'a self, oct_tree: &'a mut FaceOctTree) -> Self {
+        if let Shape::TriangleMesh { center, mesh, material, .. } = self {
+            let mut offset = 0;
+            for face_id in 0..mesh.triangle_count {
+                if offset + 3 > mesh.indices.len() {
+                    break;
+                }
+                let ix0 = mesh.indices[offset];
+                let ix1 = mesh.indices[offset+1];
+                let ix2 = mesh.indices[offset+2];
+
+                let (v0, v1, v2) = (
+                    mesh.vertices[ix0].position + center,
+                    mesh.vertices[ix1].position + center,
+                    mesh.vertices[ix2].position + center
+                );
+
+                oct_tree.fill(&v0, &v1, &v2, face_id);
+            }
+
+            Shape::TriangleMesh {
+                center: *center,
+                mesh: *mesh,
+                material: *material,
+                face_oct_tree: Some(oct_tree)
+            }
+        } else {
+            *self
         }
     }
 }
