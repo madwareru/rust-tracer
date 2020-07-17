@@ -35,7 +35,7 @@ use {
     scene::*
 };
 
-const NUM_SAMPLES: u16 = 128;
+const NUM_SAMPLES: u16 = 256;
 const FOCUS_DISTANCE: f32 = 1.6;
 const APERTURE: f32 = 0.035;
 const MAX_T: f32 = 400.0;
@@ -238,7 +238,6 @@ fn main() {
         Shape::TriangleMesh {
             center: vec3(0.55, -0.5, 0.65),
             mesh: bunny_mesh,
-            rotation: quat_identity,
             material: LIGHT_GRAY_MAT_LAMBERT
         }
     ];
@@ -250,5 +249,5 @@ fn main() {
         max_t: MAX_T,
         world: World::construct(shapes)
     };
-    scene.render_as_ppm(t, 320, 200);
+    scene.render_as_ppm(t, 1280, 800);
 }

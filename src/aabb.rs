@@ -13,10 +13,10 @@ const EPS: f32 = 0.001;
 impl<'a> From<Shape<'a>> for Option<AaBb> {
     fn from(shape: Shape<'a>) -> Self {
         match shape {
-            Shape::TriangleMesh { center, mesh, rotation, material } => {
+            Shape::TriangleMesh { center, mesh, material } => {
                 let (mut min, mut max) = (vec3(0.0, 0.0, 0.0), (vec3(0.0, 0.0, 0.0)));
                 for ix in 0..mesh.vertices.len() {
-                    let p = rotation * mesh.vertices[ix].position + center;
+                    let p = mesh.vertices[ix].position + center;
                     if p.x < min.x {min.x = p.x}
                     if p.x > max.x {max.x = p.x}
                     if p.y < min.y {min.y = p.y}

@@ -47,7 +47,6 @@ pub enum Shape<'a> {
     TriangleMesh {
         center: Vector3<f32>,
         mesh: MeshDescription<'a>,
-        rotation: Quaternion<f32>,
         material: Material<'a>
     }
 }
@@ -189,43 +188,55 @@ impl HitTestable for Shape<'_> {
                 }
                 hit_info_maybe
             }
-            Shape::TriangleMesh { center, mesh, rotation, material } => {
+            Shape::TriangleMesh { center, mesh, material } => {
                 let mut offset = 0;
                 let mut hit_info_maybe = None;
+
+                // let (i, j, k) = (
+                //     (Vector3::unit_x()).normalize(),
+                //     (Vector3::unit_y()).normalize(),
+                //     (Vector3::unit_z()).normalize(),
+                // );
 
                 for _ in 0..mesh.triangle_count {
                     if offset + 3 > mesh.indices.len() {
                         break;
                     }
 
-                    let next_vertices = mesh
-                        .indices[offset..offset+3]
-                        .iter()
-                        .map(|&ix| VertexDescription{
-                            position: rotation * mesh.vertices[ix].position + center,
-                            normal: rotation * mesh.vertices[ix].normal,
-                            ..mesh.vertices[ix]
-                        })
-                        .collect::<Vec<_>>();
+                    let slice = &mesh.indices[offset..offset+3];
 
-                    let v0 = next_vertices[1].position - next_vertices[0].position;
-                    let v1 = next_vertices[2].position - next_vertices[0].position;
+                    let (p0, p1, p2) = (
+                        VertexDescription{
+                            position: mesh.vertices[slice[0]].position + center,
+                            ..mesh.vertices[slice[0]]
+                        },
+                        VertexDescription{
+                            position: mesh.vertices[slice[1]].position + center,
+                            ..mesh.vertices[slice[1]]
+                        },
+                        VertexDescription{
+                            position: mesh.vertices[slice[2]].position + center,
+                            ..mesh.vertices[slice[2]]
+                        }
+                    );
+
+                    let v0 = p1.position - p0.position;
+                    let v1 = p2.position - p0.position;
                     let n = v0.cross(v1);
                     let whole_area = n.magnitude();
                     let n = n.normalize();
-                    let neg_n = -n;
 
                     if let Some(hit_info) = test_ray_plane_intersection(
-                        &(next_vertices[0].position),
+                        &(p0.position),
                         &n,
                         &ray,
                         &material
                     ) {
                         let old_t = hit_info_maybe.map_or(100000.0, |i : HitInfo| i.t);
                         if hit_info.t <= old_t {
-                            let p0p = next_vertices[0].position - hit_info.p;
-                            let p1p = next_vertices[1].position - hit_info.p;
-                            let p2p = next_vertices[2].position - hit_info.p;
+                            let p0p = p0.position - hit_info.p;
+                            let p1p = p1.position - hit_info.p;
+                            let p2p = p2.position - hit_info.p;
 
                             let p0_area_cross = p1p.cross(p2p);
                             let p1_area_cross = p2p.cross(p0p);
@@ -242,14 +253,14 @@ impl HitTestable for Shape<'_> {
                                 );
 
                                 let normal =
-                                    next_vertices[0].normal * u +
-                                    next_vertices[1].normal * v +
-                                    next_vertices[2].normal * w;
+                                    p0.normal * u +
+                                    p1.normal * v +
+                                    p2.normal * w;
 
                                 let uv =
-                                    next_vertices[0].uv * u +
-                                    next_vertices[1].uv * v +
-                                    next_vertices[2].uv * w;
+                                    p0.uv * u +
+                                    p1.uv * v +
+                                    p2.uv * w;
 
                                 hit_info_maybe = Some(
                                     HitInfo {
